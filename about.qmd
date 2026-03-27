@@ -1,9 +1,705 @@
 ---
-title: "About"
+title: ""
+message: false
+warning: false
 ---
 
-About this site
+# Packages
+```{r}
+library(dplyr)
+library(gsheet)
+library(tidyverse)
+library(writexl)
+library(patchwork)
+gc()
+```
+
+```{r, warning=FALSE, message=FALSE}
+data2 = gsheet2tbl("https://docs.google.com/spreadsheets/d/1NZJYstoltlN18XhS1g4Om6laTYnHCgqwdiJ-GutUaYk/edit?usp=sharing")
+data2
+```
 
 ```{r}
-1 + 1
+sb_ipm = data2
+```
+
+```{r}
+sb_ipm_d <- sb_ipm %>%
+  group_by(year,trt,gen,fung,time,head) %>%
+  summarise(
+    yield = mean(yield, na.rm = TRUE),
+    SB = mean(SB2, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+head(sb_ipm_d)
+```
+
+# Economic losses
+
+```{r}
+#sev  = data.frame(sev = seq(20,100, by = 10))
+#yield = data.frame(yld = seq(4000,16000,by = 2000))
+
+#combined_data <- expand.grid(sev = sev$sev, yld = yield$yld)
+set.seed(123)
+sev = seq(0, 8,length.out = 400)
+yld = seq(4000, 16000,length.out = 400)
+b1 <- runif(100,min = 239.0946, max = 447.9003)
+price_rice <- runif(2, min = 300, max = 600)
+
+combined_data <- expand.grid(sev = sev, yld = yld, b1 = b1,price_rice = price_rice)
+
+
+ylmer_simu_min = combined_data %>% 
+  mutate(loss =((((((b1/10303)*sev)*100)*yld)/100)/1000)*price_rice)
+
+head(ylmer_simu_min)
+max(ylmer_simu_min$loss)
+```
+
+```{r}
+heat_loss = ylmer_simu_min %>%
+  ggplot(aes(sev, yld, fill = loss)) +
+  geom_raster() +
+  scale_x_continuous(breaks = seq(0, 8, by = 1)) +
+  scale_y_continuous(breaks = seq(4000, 16000, by = 2000)) +
+  
+  scale_fill_stepsn(
+    colours = c("#2E8B57",   # dark brown
+                "#7FBF7B",   # medium brown
+                "#D1BE91",   # beige transition
+                "#A6764D",   # light green
+                "#6F3F1F"),  # dark green
+    n.breaks = 5,             # number of steps (adjust for contrast)
+    breaks = seq(0, 3000, 250),
+    name = "L (USD/ha)",
+    
+guide = guide_colorsteps(
+    keyheight = unit(150, "pt")   # << AQUI aumenta a altura da legenda
+  )
+) +
+  
+  theme_bw() +
+  labs(
+    y = "Attainable yield (kg/ha)",
+    x = "SB index"
+  ) +
+  theme(
+    text = element_text(size = 14),
+    axis.title = element_text(size = 20, face = "bold"),
+    strip.text = element_text(size = 14),
+    axis.text.x = element_text(vjust = 1),
+    legend.position = "right",
+    panel.grid = element_blank()
+  )
+ 
+ heat_loss
+```
+```{r}
+gen_summary = sb_ipm_d %>% 
+  filter(time == "_CHECK") %>% 
+  filter(!is.na(gen)) %>% 
+  group_by(gen) %>% 
+  summarise(
+    yield = mean(yield),
+    SB = mean(SB)
+  )
+
+gen_summary
+```
+
+```{r}
+
+
+
+library(ggrepel)
+
+heat_loss <- ylmer_simu_min %>%
+  ggplot(aes(sev, yld, fill = loss)) +
+  geom_raster() +
+  scale_x_continuous(breaks = seq(0, 8, by = 1)) +
+  scale_y_continuous(breaks = seq(4000, 16000, by = 2000)) +
+  scale_fill_stepsn(
+    colours = c("#2E8B57", "#7FBF7B", "#D1BE91", "#A6764D", "#6F3F1F"),
+    n.breaks = 5,
+    breaks = seq(0, 3000, 250),
+    name = "L (USD/ha)",
+    guide = guide_colorsteps(keyheight = unit(150, "pt"))
+  ) +
+  theme_bw() +
+  labs(y = "Attainable yield (kg/ha)", x = "SB index") +
+  theme(
+    text = element_text(size = 14),
+    axis.title = element_text(size = 20, face = "bold"),
+    strip.text = element_text(size = 14),
+    axis.text.x = element_text(vjust = 1),
+    legend.position = "right",
+    panel.grid = element_blank()
+  ) +
+
+  # pontos das cultivares
+  geom_point(
+    data = gen_summary,
+    inherit.aes = FALSE,
+    aes(x = SB, y = yield),
+    colour = "black", fill = "black",
+    size = 2.8, shape = 21, stroke = 0.6
+  ) +
+
+  # rótulos das cultivares (ajustados um pouco à direita e para baixo)
+  ggrepel::geom_text_repel(
+    data = gen_summary,
+    inherit.aes = FALSE,
+    aes(x = SB, y = yield, label = gen),
+    nudge_x = 0.08,      # -> direita (SB vai de 0–8; ajuste fino)
+    nudge_y = -150,      # -> baixo (eixo y em kg/ha)
+    min.segment.length = 0,
+    box.padding   = 0.25,
+    point.padding = 0.15,
+    size = 5,
+    fontface = "bold",
+    colour = "black",
+    seed = 123
+  )
+
+heat_loss
+
+
+```
+
+```{r}
+median(combined_data$yld)
+```
+
+```{r}
+
+ylmer_simu_min2 = combined_data %>% 
+  mutate(loss =((((((343/10303)*sev)*100)*yld)/100)/1000)) %>%
+   mutate(pressure = case_when(sev > 1.7 ~ "High pressure",
+                           sev <= 1.7 ~"Low pressure"),
+          attainable = case_when(yld >9737.181 ~ "High yield",
+                                 yld <= 9737.181 ~"Low yield"))
+         
+
+```
+
+
+```{r}
+ylmer_simu_min2 %>% 
+  ggplot(aes(pressure,loss))+
+  geom_boxplot(na.rm = F)
+```
+
+```{r}
+simu_summary <- ylmer_simu_min2 %>%
+  group_by(pressure,attainable) %>%
+  summarise(
+    mean_loss = mean(loss, na.rm = TRUE),
+    ci_low = quantile(loss, 0.025),
+    ci_high = quantile(loss, 0.975),
+    .groups = "drop"
+  )
+```
+
+```{r}
+pressure_cols <- c(
+  "High pressure"  = "#6F3F1F",
+  "Low pressure" = "#2E8B57")
+
+```
+
+
+```{r}
+
+library(ggplot2)
+library(dplyr)
+library(scales)   
+
+dodge_w <- 0.45   # mantenha o mesmo valor usado nas outras camadas
+
+interval2 <- ylmer_simu_min2 %>% 
+  ggplot(aes(x = pressure, y = loss)) +
+  
+  # Intervalos (médias + IC) lado a lado por attainable
+  geom_pointrange(
+    data = simu_summary,
+    aes(
+      x        = pressure,
+      y        = mean_loss,
+      ymin     = ci_low,
+      ymax     = ci_high,
+      color    = pressure,
+      linetype = attainable,
+      group    = attainable
+    ),
+    position = position_dodge(width = dodge_w),
+    size = 1.0
+  ) +
+  
+  # Ponto da média (opcional)
+  geom_point(
+    data = simu_summary,
+    aes(
+      x     = pressure, 
+      y     = mean_loss,
+      color = pressure,
+      shape = attainable,
+      group = attainable
+    ),
+    position = position_dodge(width = dodge_w),
+    size = 2.2
+  ) +
+  
+  # Texto da média alinhado ao seu respectivo intervalo (lado a lado)
+  geom_text(
+    data = simu_summary,
+    aes(
+      x     = pressure,
+      y     = ci_high,  # posiciona o rótulo próximo à ponta superior do IC
+      # Opção 1 (base R):
+      label = sprintf("%.2f", mean_loss),
+      # Opção 2 (scales): label = number(mean_loss, accuracy = 0.01),
+      color = pressure,
+      group = attainable
+    ),
+    position   = position_dodge(width = dodge_w),
+    nudge_x    = 0.08,    # -> direita (ajuste fino conforme seu espaçamento)
+    nudge_y    = 0.08,       # pequeno empurrão para não colar na barra
+    hjust      = -0.4,          # à direita; ajuste conforme preferir
+    vjust      = 2,       # ligeiramente acima da ponta do intervalo
+    size       = 5,
+    fontface   = "bold.italic"
+    #, check_overlap = TRUE   # opcional para evitar sobreposição
+  ) +
+  
+  # Escalas
+  scale_color_manual(values = pressure_cols, name = "Pressure") +
+  scale_linetype_manual(values = c("Low yield" = "solid", "High yield" = "dashed"),
+                        name = "Attainable") +
+  scale_shape_manual(values = c("Low yield" = 16, "High yield" = 17),
+                     name = "Attainable") +
+  
+  theme_bw() +
+  labs(
+    x = "Pressure level",
+    y = "Yield loss (ton/ha)"
+  ) +
+  theme(
+    text = element_text(size = 14),
+    axis.title = element_text(size = 20, face = "bold"),
+    title = element_text(face = "bold"),
+    legend.position = "none",
+    legend.box = "horizontal"
+  )
+
+interval2
+
+```
+
+```{r}
+library(ggdist)
+
+ylmer_simu_min = ylmer_simu_min %>% 
+   mutate(pressure = case_when(sev > 1.7 ~ "High pressure",
+                           sev <= 1.7 ~"Low pressure"))
+
+```
+
+```{r}
+
+
+
+
+# --- Libraries ---------------------------------------------------------------
+library(dplyr)
+library(ggplot2)
+library(tibble)
+
+# --- Data prep ---------------------------------------------------------------
+# Expect columns: loss (numeric), pressure (factor with 2 levels)
+df <- ylmer_simu_min %>%
+  mutate(pressure = factor(pressure))
+
+# Validate
+stopifnot(all(c("loss", "pressure") %in% names(df)))
+if (nlevels(df$pressure) != 2) {
+  stop("This script expects exactly two pressure levels; found: ",
+       paste(levels(df$pressure), collapse = ", "))
+}
+
+# Set the level names you want to treat as "low" vs "high"
+lvl_low  <- "Low pressure"
+lvl_high <- "High pressure"
+if (!all(c(lvl_low, lvl_high) %in% levels(df$pressure))) {
+  stop("Level names not found in df$pressure. Levels are: ",
+       paste(levels(df$pressure), collapse = ", "))
+}
+
+# Manual colors for legend
+pressure_cols <- c(
+  `High pressure`  = "#6F3F1F", # brown
+  `Low pressure` = "#2E8B57"  # green #7FBF7B #6F3F1F
+)
+
+# --- Helper: safe bandwidth (avoids approx/bw errors) ------------------------
+safe_bw <- function(x) {
+  x <- x[is.finite(x)]
+  if (length(x) >= 2) {
+    # Try standard rule; fallback if it fails
+    bw <- tryCatch(stats::bw.nrd0(x), error = function(e) NA_real_)
+    if (is.na(bw) || bw <= 0) {
+      # Fallback: heuristic based on range
+      rng <- diff(range(x))
+      bw <- max(rng / 50, .Machine$double.eps)
+    }
+  } else {
+    # If <2 values, choose tiny positive bw so density is effectively flat
+    bw <- 1e-6
+  }
+  bw
+}
+
+# --- Mixture-dominance segmentation ------------------------------------------
+# Prevalence weights
+p_low  <- mean(df$pressure == lvl_low)
+p_high <- mean(df$pressure == lvl_high)
+
+# Bandwidth (shared for all densities to keep them comparable)
+bw_all <- safe_bw(df$loss)
+
+# Overall density on full data
+d_all <- density(df$loss, bw = bw_all, na.rm = TRUE)
+dd    <- tibble(x = d_all$x, y_all = d_all$y)
+
+# Group vectors
+loss_low  <- df$loss[df$pressure == lvl_low]
+loss_high <- df$loss[df$pressure == lvl_high]
+
+# Group densities on the same grid; if group has <2 points, make it ~0
+d_low  <- if (sum(is.finite(loss_low))  >= 2) {
+  density(loss_low,  bw = bw_all, from = min(dd$x), to = max(dd$x), n = length(dd$x))
+} else {
+  list(x = dd$x, y = rep(0, length(dd$x)))
+}
+d_high <- if (sum(is.finite(loss_high)) >= 2) {
+  density(loss_high, bw = bw_all, from = min(dd$x), to = max(dd$x), n = length(dd$x))
+} else {
+  list(x = dd$x, y = rep(0, length(dd$x)))
+}
+
+# Dominance at each x (which group contributes more to the mixture)
+dd <- dd %>%
+  mutate(
+    mix_low  = p_low  * d_low$y,
+    mix_high = p_high * d_high$y,
+    segment  = if_else(mix_low >= mix_high, lvl_low, lvl_high)
+  )
+
+# --- Boundary (where segment flips) ------------------------------------------
+# Find indices where segment changes; take first boundary for the dashed line
+chg_idx <- which(diff(as.numeric(factor(dd$segment, levels = c(lvl_low, lvl_high)))) != 0)
+boundary_df <- if (length(chg_idx) >= 1) {
+  tibble(x = dd$x[chg_idx[1] + 1])  # +1: first x in the new segment
+} else {
+  tibble(x = numeric(0))            # empty -> ggplot draws nothing (no error)
+}
+
+# --- Split for plotting -------------------------------------------------------
+dd_low  <- dd %>% filter(segment == lvl_low)
+dd_high <- dd %>% filter(segment == lvl_high)
+
+# --- Plot --------------------------------------------------------------------
+ec_losses = ggplot() +
+  # Areas for each segment of the single density (legend via fill mapping)
+  geom_area(data = dd_low,
+            aes(x, y_all, fill = segment),
+            color = NA, alpha = 0.70) +
+  geom_area(data = dd_high,
+            aes(x, y_all, fill = segment),
+            color = NA, alpha = 0.85) + #
+  # Single outline keeps the silhouette crisp
+  geom_line(data = dd, aes(x, y_all), color = "white", linewidth = 1.5) +
+  # Dashed vertical line at the transition (if any)
+  geom_vline(data = boundary_df, aes(xintercept = x),
+             linetype = "dashed", linewidth = 1, size = 2) +
+  # Manual legend
+  scale_fill_manual(
+    name   = "Pressure",
+    values = pressure_cols,
+    breaks = c(lvl_low, lvl_high)
+  ) +
+  theme_bw() +
+ scale_x_continuous(breaks = seq(0, 2500, by = 250))+
+  xlim(0,2500)+
+  labs(
+    x = "Economic losses (USD/ha)",
+    y = "Density"
+  ) +
+  theme(
+    text = element_text(face = "bold", size = 14),
+    axis.title = element_text(size = 20, face = "bold"),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    legend.position = "none"
+  )
+
+
+ec_losses
+```
+
+
+```{r}
+library(cowplot)
+base_plot <- (interval2 / ec_losses | heat_loss) +
+  plot_layout(guides = "collect")
+
+
+base_grob <- patchworkGrob(base_plot)
+
+
+
+final_plot <- ggdraw(base_grob) +
+  draw_plot_label(
+    label = c("(a)", "(b)", "(c)"),
+    x     = c(0, 0, 0.46), 
+    y     = c(1, 0.5, 1),   
+    size  = 18,                    
+    fontface = "bold"
+  )
+
+
+final_plot
+
+
+ggsave("fig/ec_losses.png", bg = "white", dpi = 600, height = 8 ,width = 16)
+```
+
+# Economic damage threshold
+
+
+
+```{r}
+# Function to Simulate EDC
+set.seed(123)
+
+simula_LDE <- function(n, media_rp, sd_rp, eficacia, cd_base, custo_range, preco_range) {
+  simulacoes <- tibble(
+    rendimento_potencial = rnorm(n, media_rp, sd_rp),
+    custo_controle = runif(n, custo_range[1], custo_range[2]),
+    preco_produto = runif(n, preco_range[1], preco_range[2]),
+    eficacia = eficacia
+  ) %>% 
+    mutate(
+      cd_base = cd_base,
+      coeficiente_dano = cd_base * rendimento_potencial,
+      LDE = (custo_controle / (preco_produto * coeficiente_dano)) * eficacia
+    )
+  return(simulacoes)
+}
+
+
+n = 5000 # number of simulations
+media_rp = 10.32 # in ton/ha
+sd_rp = 0.70  # SD of attainable yield
+eficacia = rnorm(5000, 0.54, 0.1) #  in proportion
+cd_base = 0.03
+custo_range = c(15, 105) # cust of control (US$)
+preco_range = c(300, 600) # soybean price (US$)
+
+# run the simulation
+simula <- simula_LDE(n, media_rp, sd_rp, eficacia, cd_base, custo_range, preco_range)
+```
+
+```{r}
+edt_2 = simula |> 
+  ggplot(aes(rendimento_potencial, eficacia, 
+             color = LDE, size = coeficiente_dano))+
+  geom_point()+
+  #scale_color_viridis_c(labels = scales::number_format(accuracy = 0.1))+
+    scale_colour_stepsn(
+    colours = c("#2E8B57",   # dark brown
+                "#7FBF7B",   # medium brown
+                "#D1BE91",   # beige transition
+                "#A6764D",   # light green
+                "#6F3F1F"),  # dark green
+    n.breaks = 6,             # number of steps (adjust for contrast)
+    breaks = seq(0, 1, 0.2),
+    name = "EDT",
+    guide = guide_legend(
+    override.aes = list(size = 6)   
+  )
+) +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.25)) +
+   labs(color = "EDT",
+     x = "Attainable yield (ton/ha)",
+       y = "Fungicide efficacy (%)",
+     size = "DC")+
+  theme_bw()+
+    theme(
+    legend.position = "top",
+    text = element_text(size = 14),
+    legend.justification = "center",
+    legend.margin = margin(t = 0, r = 20, b = 0, l = 0),  # Aumenta a margem à direita da legenda
+    strip.text = element_text(size = 18,face = "bold"),
+    axis.title = element_text(size = 18, face = "bold")
+  )
+
+edt_2
+```
+```{r}
+min(simula$LDE)
+mean(simula$LDE)
+```
+
+```{r}
+library(ggdist) 
+edt_density <- ggplot(simula, aes(x = LDE)) +
+  stat_halfeye(fill = "#7FBF7B", alpha = 0.7) +
+  geom_vline(aes(xintercept = median(LDE)), color = "#6F3F1F", linetype = "dashed", size = 1) +
+ # annotate("text", x = 0.6, y = 0.90, label = "Median = 1.54%", color = "black", size = 4.5) +
+  #annotate("text", x = 0.6, y = 0.80, label = "95% CI = 0.89%, 2.53%", color = "black", size = 4.5) +
+  labs(
+    x = "Economic Damage Threshold (EDT)",
+    y = "Density"
+  ) +
+  theme_bw()+
+    theme(
+    legend.position = "right",
+    text = element_text(size = 14),
+    legend.justification = "center",
+    legend.margin = margin(t = 0, r = 20, b = 0, l = 0),  # Aumenta a margem à direita da legenda
+    strip.text = element_text(size = 18,face = "bold"),
+    axis.title = element_text(size = 18, face = "bold")
+  )
+
+edt_density
+```
+
+
+
+# Minimum
+
+```{r}
+price <- seq(300,600, length.out = 1000) #600,800,1000,1200,1400,1600
+cost  <- seq(15,105,length.out = 1000) #150,300,450, 600,750,900,1050
+
+#sev = seq(5, 60,length.out = 400)
+#yld = seq(4000, 12000,length.out = 400)
+
+
+scenarios_minimum <- expand.grid(price = price,
+                         cost  = cost)
+```
+
+```{r}
+
+scenarios2 = scenarios_minimum %>% 
+  dplyr::mutate(
+    minimum  = (cost/price)
+  )
+
+
+scenarios2 = scenarios2 %>% 
+  group_by(cost) %>% 
+  mutate(
+mean_yield = mean(minimum, na.rm = TRUE),
+    ci_low = quantile(minimum, 0.025),
+    ci_high = quantile(minimum, 0.975))
+```
+
+```{r, eval = FALSE, echo=FALSE}
+scenarios2 %>% 
+  ggplot(aes(as.factor(price),as.factor(cost), fill = minimum))+ 
+  #ggplot(aes(price,cost, fill = Prob_hf))+
+  #geom_raster()+
+   geom_tile(color = "white", size = 0.5)+
+ # scale_fill_distiller(palette = "RdYlGn",breaks = seq(0, 100, by =25),direction = 1)+
+  scale_fill_viridis_b(option = "D", direction = 1)+
+  ggthemes::theme_few()+
+ # facet_wrap(~season+pressure)+
+  labs(x = "Price (R$/ton)",
+       y = "Cost (kg/ha)",
+       fill ="t/ha" )+
+  theme(legend.position = "right",
+        legend.justification = 0.5,
+        text = element_text(size = 12, face = "bold"),
+        axis.text.x = element_text(size = 12, face = "bold"),   
+        axis.text.y = element_text(size = 12, face = "bold"))
+```
+
+```{r}
+minimum_plot = scenarios2 %>% 
+  filter(cost <= 300) %>% 
+  ggplot()+
+  #geom_point()+
+  geom_line(aes(cost, ci_low*1000),
+              linetype = 2,
+            size = 1,
+            fill = NA, color = "black")+
+  geom_line(aes(cost, ci_high*1000),
+              linetype = 2,
+            size = 1,
+          fill = NA,color = "black")+
+  geom_line(size = 1.4, aes(cost,mean_yield*1000), color = "black")+
+  theme_bw()+
+    labs(x = "Management cost (USD/ha)",
+       y = "Minimum (kg/ha)",
+       fill ="t/ha" )+
+  scale_y_continuous(breaks = seq(50, 400, by = 50)) +
+  scale_x_continuous(breaks = seq(15, 105, by = 15)) +
+  theme(axis.title = element_text(size = 18, face = "bold"),
+        axis.text.x = element_text(size = 14),   
+        axis.text.y = element_text(size = 14))
+```
+
+```{r}
+#minimum_plot/edt_density|edt_2
+
+#ggsave("fig/min_EDT2.png", bg = "white", dpi = 600, height = 8, width = 16)
+#ggsave("fig/min_EDT2.png", bg = "white", dpi = 600, height = 6, width = 10)
+
+```
+
+```{r}
+
+library(ggplot2)
+library(patchwork)
+library(cowplot)
+
+base_plot <- (minimum_plot / edt_density | edt_2) +
+  plot_layout(guides = "collect") +
+  plot_annotation(
+    theme = theme(
+      legend.position      = "top",
+      legend.justification = "center",
+      legend.box.just      = "center"
+    )
+  ) &
+  guides(
+    colour = guide_legend(override.aes = list(size = 6)),
+    size   = guide_legend()
+  )
+
+
+base_grob <- patchworkGrob(base_plot)
+
+final_plot <- ggdraw(base_grob) +
+  draw_plot_label(
+    label = c("(a)", "(b)", "(c)"),
+    x     = c(0.01, 0.01, 0.50),
+    y     = c(0.92, 0.45, 0.92),
+    size  = 14,
+    fontface = "bold",
+    hjust = 0
+  )
+
+final_plot
+
+
+```
+
+```{r}
+ggsave("fig/min_EDT.png", bg = "white", dpi = 600, height = 6, width = 10)
 ```
