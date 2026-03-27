@@ -19,7 +19,178 @@ gc()
 
 data2 = gsheet2tbl("https://docs.google.com/spreadsheets/d/1D8LV8R8WalqyheeT6XlSQkoYRg5K1Rp2-fCktx3nkro/edit?usp=sharing")
 data2
+
+data2$plot_moist = data2$plot_moist/10
+data2$plot_weight = data2$plot_weight/100
+
+data22 = data2 %>%
+  filter(!is.na(SB)) %>% 
+  filter(!is.na(yield_lb)) %>% 
+ dplyr::mutate(
+    trt = factor(trt), 
+         #weig_12 = tw*((100 - plot_moist)/88), 
+         yld = plot_weight/(80/43560), 
+         kg_ha = yld*1.2085)
+
+data22 %>% 
+  ggplot(aes(SB, kg_ha, fill = as.factor(gen)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  theme(legend.position = "none")
+  
+unique(data2$plot_moist)
+
+
+library(lme4)
+
+tt = lmer(kg_ha ~ SB*gen + (1|year/trial/blk), data = data22)
+
+
+tt <- lmer(
+  kg_ha ~ SB +
+    (1 + SB | gen) +
+    (1|year/trial/blk), data = data22)
+
+       
+re <- ranef(tt)$gen
+
+damage_coef <- data.frame(
+  gen = rownames(re),
+  intercept = fixef(tt)[1] + re[, "(Intercept)"],
+  damage_coef = fixef(tt)["SB"] + re[, "SB"]
+)
+
+
+
+fix <- fixef(tt)
+re  <- ranef(tt)$gen
+
+dc_gen <- data.frame(
+  gen = rownames(re),
+  B0  = fix["(Intercept)"] + re[, "(Intercept)"],
+  B1  = fix["SB"]          + re[, "SB"]
+)
+
+dc_gen$DC <- - dc_gen$B1 / dc_gen$B0
+
+
+
+
+
+
+summary(tt)
+confint(tt)
+
+library(broom)
+
+data22$SB = data22$SB*100
+
+regression = data22  %>%
+  group_by(gen) %>% 
+  do(tidy(lm(.$kg_ha ~ .$SB + factor(.$blk))))
+unique(data22$year)
+
+performance::check_model(tt)
+
+
+ggsave("fig/check_model.png")
+
+overall_regression = data22 |> 
+ ggplot(aes(SB, y = yld)) +
+  geom_point(color = "NA")+
+  scale_y_continuous(breaks = c(5000,6000,7000,8000,9000,
+                      10000,11000,12000,13000,14000), 
+                     limits = c(5000, 14000))+
+ scale_x_continuous(breaks = c(0,1,2,3,4,5,6,7,8),
+                    limits = c(0, 8))+
+  geom_abline(aes(intercept = 8238.7285, slope = -371.4572),
+              size = 1, fill = "black", color = "black", linetype = 2)+
+  geom_abline(aes(intercept = 10281.71,slope = -326.32) ,
+              size = 2)+
+  geom_abline(aes(intercept = 12322.5967,slope = -281.3444), size = 1, linetype = 2)+
+  #annotate(geom="text", x=55, y=6000, label="DC = 0.2",
+   #           color="black", size = 4)+
+  theme_bw()+
+    #ggthemes::theme_few()+
+  theme(text = element_text(size = 12),
+        axis.title = element_text(size = 14, face = "bold"),
+        title = element_text(face = "bold"),
+        legend.position = "none")+
+  labs(x = "SB index", y = "Yield (kg/ha) ")
+
+overall_regression
 ```
+
+```{r}
+
+ma_c_reg = regression
+ma_c_reg = ma_c_reg |> 
+filter(term %in% c("(Intercept)",".$SB"))
+ 
+ma_c_reg[ma_c_reg$term== "(Intercept)",c("parameters")] <- "Intercept"
+ma_c_reg[ma_c_reg$term== ".$SB",c("parameters")] <- "Slope"
+
+
+b1_c = ma_c_reg |> 
+  dplyr::filter(parameters == "Slope") |> 
+  #filter(estimate < 0) %>% 
+  dplyr::group_by(gen) |> 
+  summarise(
+    Slope = estimate
+  )
+
+b0_c = ma_c_reg |> 
+  filter(parameters == "Intercept") |>
+  group_by(gen) |> 
+  summarise(
+    Intercept = estimate
+  )
+
+parameters_c = cbind(b1_c,b0_c)
+parameters_c[,3] = NULL
+
+parameters_c = parameters_c %>% 
+  filter(Slope >=0)
+
+dc_c = parameters_c %>% 
+  group_by(gen) %>% 
+  summarise(
+    DC = (Slope/Intercept)*-1,
+    b1= Intercept/1000,
+    DC = DC,
+    DC_perc = DC*100
+  )
+
+set.seed(123)
+
+damage_coef2 = damage_coef %>% 
+  select(damage_coef,gen)
+dados_dummy <- model.matrix(~ gen - 1, data = damage_coef2)
+
+set.seed(123)
+dados_preparados <- cbind(dados_dummy, DC = damage_coef2$damage_coef)
+
+set.seed(123)
+resultado_kmeans <- kmeans(dados_preparados, centers = 3)
+
+library(factoextra)
+
+p = fviz_cluster(resultado_kmeans, data = dados_preparados, label = NULL,geom = "point",pointsize = 3, shape = 20)
+p2 = p +
+  scale_color_manual(values = c('#9ccb86','#cf597e','steelblue'))+
+  scale_fill_manual(values = c('#9ccb86','#cf597e','steelblue'))+
+  theme(
+    axis.title = element_text(size = 14, face = "bold"),  
+    axis.text = element_text(size = 12)) + 
+  labs(
+    title = "",  
+    x = "PC1",  
+    y = "PC2")+
+  theme(legend.position = "none")
+p2
+
+```
+
 
 ```{r}
 sb_ipm = data2
