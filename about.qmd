@@ -15,7 +15,9 @@ gc()
 ```
 
 ```{r, warning=FALSE, message=FALSE}
-data2 = gsheet2tbl("https://docs.google.com/spreadsheets/d/1NZJYstoltlN18XhS1g4Om6laTYnHCgqwdiJ-GutUaYk/edit?usp=sharing")
+#data2 = gsheet2tbl("https://docs.google.com/spreadsheets/d/1NZJYstoltlN18XhS1g4Om6laTYnHCgqwdiJ-GutUaYk/edit?usp=sharing")
+
+data2 = gsheet2tbl("https://docs.google.com/spreadsheets/d/1D8LV8R8WalqyheeT6XlSQkoYRg5K1Rp2-fCktx3nkro/edit?usp=sharing")
 data2
 ```
 
