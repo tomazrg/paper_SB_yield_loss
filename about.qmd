@@ -18,40 +18,90 @@ gc()
 #data2 = gsheet2tbl("https://docs.google.com/spreadsheets/d/1NZJYstoltlN18XhS1g4Om6laTYnHCgqwdiJ-GutUaYk/edit?usp=sharing")
 
 data2 = gsheet2tbl("https://docs.google.com/spreadsheets/d/1D8LV8R8WalqyheeT6XlSQkoYRg5K1Rp2-fCktx3nkro/edit?usp=sharing")
+
+camila = gsheet2tbl("https://docs.google.com/spreadsheets/d/1zX-6_nGgKGZH8DBTxBpnoYX_xzM0cINBViJLXkK5hV4/edit?usp=sharing")
+
 data2
 
-data2$plot_moist = data2$plot_moist/10
+data2$plot_moist = data2$plot_moist/100
 data2$plot_weight = data2$plot_weight/100
+data2$SB = data2$SB*10
 
 data22 = data2 %>%
   filter(!is.na(SB)) %>% 
   filter(!is.na(yield_lb)) %>% 
  dplyr::mutate(
     trt = factor(trt), 
-         #weig_12 = tw*((100 - plot_moist)/88), 
+        # weig_12 = tw*((100 - plot_moist)/88), 
          yld = plot_weight/(80/43560), 
-         kg_ha = yld*1.2085)
+         kg_ha = yld*1.2085) %>% 
+  filter(!kg_ha <=4000)
 
-data22 %>% 
-  ggplot(aes(SB, kg_ha, fill = as.factor(gen)))+
-  geom_point()+
-  geom_smooth(method = "lm", se = F)+
-  theme(legend.position = "none")
+data22$year = as.factor(data22$year)
+data22$blk = as.factor(data22$blk)
+data22$trial = as.factor(data22$trial)
+```
+
+```{r}
+data222 = data22  %>%
+  #filter(!year == "2025") %>% 
   
-unique(data2$plot_moist)
+  #filter(!trial %in% c("25-P2S1_VAR2","25-P2S2_PC2")) %>% 
+ # filter(!is.na(SB_1)) %>% 
+  select(year,trial,gen,trt,plot,blk,SB,kg_ha)
 
+
+camila$kg_ha = camila$kg_ha*1000
+
+camila$SB = camila$SB/10
+
+camila = camila %>% 
+  select(year,trial,gen,trt,plot,blk,SB,kg_ha)
+
+
+camila$year = as.factor(camila$year)
+camila$blk = as.factor(camila$blk)
+camila$trial = as.factor(camila$trial)
+
+data222 = rbind(camila,data222)
+
+
+```
+
+```{r}
+
+summary(tt)
+confint(tt)
+
+library(broom)
+
+
+
+regression = data222  %>%
+  #filter(!year == "2025") %>% 
+  #filter(!trial %in% c("25-P2S1_VAR2","25-P2S2_PC2")) %>% 
+  dplyr::group_by(gen) %>% 
+  do(tidy(lm(.$kg_ha ~ .$SB+ factor(.$blk) + factor(.$trial))))
+unique(data22$year)
+
+performance::check_model(tt)
+
+unique(regression$trial)
+ggsave("fig/check_model.png")
+
+```
+
+```{r}
 
 library(lme4)
-
-tt = lmer(kg_ha ~ SB*gen + (1|year/trial/blk), data = data22)
-
 
 tt <- lmer(
   kg_ha ~ SB +
     (1 + SB | gen) +
-    (1|year/trial/blk), data = data22)
+    (1|trial/blk), data = data222)
 
-       
+
+
 re <- ranef(tt)$gen
 
 damage_coef <- data.frame(
@@ -71,29 +121,12 @@ dc_gen <- data.frame(
   B1  = fix["SB"]          + re[, "SB"]
 )
 
-dc_gen$DC <- - dc_gen$B1 / dc_gen$B0
+dc_gen$DC <- (dc_gen$B1 / dc_gen$B0)*100
 
 
+```
 
-
-
-
-summary(tt)
-confint(tt)
-
-library(broom)
-
-data22$SB = data22$SB*100
-
-regression = data22  %>%
-  group_by(gen) %>% 
-  do(tidy(lm(.$kg_ha ~ .$SB + factor(.$blk))))
-unique(data22$year)
-
-performance::check_model(tt)
-
-
-ggsave("fig/check_model.png")
+```{r}
 
 overall_regression = data22 |> 
  ggplot(aes(SB, y = yld)) +
@@ -101,8 +134,8 @@ overall_regression = data22 |>
   scale_y_continuous(breaks = c(5000,6000,7000,8000,9000,
                       10000,11000,12000,13000,14000), 
                      limits = c(5000, 14000))+
- scale_x_continuous(breaks = c(0,1,2,3,4,5,6,7,8),
-                    limits = c(0, 8))+
+ scale_x_continuous(breaks = c(0,10,20,30,40,50,60,70,80,90,100),
+                    limits = c(0, 100))+
   geom_abline(aes(intercept = 8238.7285, slope = -371.4572),
               size = 1, fill = "black", color = "black", linetype = 2)+
   geom_abline(aes(intercept = 10281.71,slope = -326.32) ,
@@ -157,14 +190,22 @@ dc_c = parameters_c %>%
   summarise(
     DC = (Slope/Intercept)*-1,
     b1= Intercept/1000,
-    DC = DC,
+    DC = DC*b1,
     DC_perc = DC*100
   )
+```
 
+```{r}
 set.seed(123)
 
 damage_coef2 = damage_coef %>% 
   select(damage_coef,gen)
+
+
+damage_coef2 = damage_coef2 %>% 
+  filter(!damage_coef >= 0)
+
+
 dados_dummy <- model.matrix(~ gen - 1, data = damage_coef2)
 
 set.seed(123)
@@ -190,26 +231,83 @@ p2 = p +
 p2
 
 ```
+# Regression
 
+```{r}
+damage_coef2$Cluster <- resultado_kmeans$cluster
+
+c_01 = damage_coef2 %>% 
+  filter(Cluster == 1)
+
+c_02 = damage_coef2 %>% 
+  filter(Cluster == 2) #%>% 
+  #filter(!gen %in% c("212M1144","CLHA02","DG353M","24AR1111","CLL16","Ozark","RT7301",
+                  #   "24AR1134","RU2102186"))
+
+c_03 = damage_coef2 %>% 
+  filter(Cluster == 3)
+
+
+#tt2 = lmer(kg_ha ~ SB + (1|year/trial), data = c1)
+
+```
+
+## Group 1
+```{r}
+data_r1 = data22 %>% 
+  filter(gen %in% c_01$gen)
+
+
+
+model_r1 <- lmer(
+  kg_ha ~ SB +
+    (1 + SB) +
+    (1|year/trial), data = data_r1)
+```
+
+```{r}
+summary(model_r1)
+confint(model_r1)
+```
+
+## Group 2
+```{r}
+data_r2 = data22 %>% 
+  filter(gen %in% c_02$gen)
+
+
+
+model_r2 <- lmer(
+  kg_ha ~ SB +
+    (1 + SB) +
+    (1|year/trial), data = data_r2)
+
+
+```
+
+## Group 3
+```{r}
+data_r3 = data22 %>% 
+  filter(gen %in% c_03$gen)
+
+
+
+model_r3 <- lmer(
+  kg_ha ~ SB +
+    (1 + SB) +
+    (1|year/trial), data = data_r3)
+
+summary(model_r3)
+confint(model_r3)
+```
 
 ```{r}
 sb_ipm = data2
 ```
 
-```{r}
-sb_ipm_d <- sb_ipm %>%
-  group_by(year,trt,gen,fung,time,head) %>%
-  summarise(
-    yield = mean(yield, na.rm = TRUE),
-    SB = mean(SB2, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-
-head(sb_ipm_d)
-```
-
 # Economic losses
+
+## Group 1
 
 ```{r}
 #sev  = data.frame(sev = seq(20,100, by = 10))
@@ -217,16 +315,16 @@ head(sb_ipm_d)
 
 #combined_data <- expand.grid(sev = sev$sev, yld = yield$yld)
 set.seed(123)
-sev = seq(0, 8,length.out = 400)
+sev = seq(0, 80,length.out = 400)
 yld = seq(4000, 16000,length.out = 400)
-b1 <- runif(100,min = 239.0946, max = 447.9003)
+b1 <- runif(100,min = 17.65, max = 33.98)
 price_rice <- runif(2, min = 300, max = 600)
 
 combined_data <- expand.grid(sev = sev, yld = yld, b1 = b1,price_rice = price_rice)
 
 
 ylmer_simu_min = combined_data %>% 
-  mutate(loss =((((((b1/10303)*sev)*100)*yld)/100)/1000)*price_rice)
+  mutate(loss =((((((b1/9780.15)*sev)*100)*yld)/100)/1000)*price_rice)
 
 head(ylmer_simu_min)
 max(ylmer_simu_min$loss)
@@ -236,7 +334,7 @@ max(ylmer_simu_min$loss)
 heat_loss = ylmer_simu_min %>%
   ggplot(aes(sev, yld, fill = loss)) +
   geom_raster() +
-  scale_x_continuous(breaks = seq(0, 8, by = 1)) +
+  scale_x_continuous(breaks = seq(0, 80, by = 10)) +
   scale_y_continuous(breaks = seq(4000, 16000, by = 2000)) +
   
   scale_fill_stepsn(
@@ -270,90 +368,21 @@ guide = guide_colorsteps(
  
  heat_loss
 ```
-```{r}
-gen_summary = sb_ipm_d %>% 
-  filter(time == "_CHECK") %>% 
-  filter(!is.na(gen)) %>% 
-  group_by(gen) %>% 
-  summarise(
-    yield = mean(yield),
-    SB = mean(SB)
-  )
 
-gen_summary
-```
 
 ```{r}
-
-
-
-library(ggrepel)
-
-heat_loss <- ylmer_simu_min %>%
-  ggplot(aes(sev, yld, fill = loss)) +
-  geom_raster() +
-  scale_x_continuous(breaks = seq(0, 8, by = 1)) +
-  scale_y_continuous(breaks = seq(4000, 16000, by = 2000)) +
-  scale_fill_stepsn(
-    colours = c("#2E8B57", "#7FBF7B", "#D1BE91", "#A6764D", "#6F3F1F"),
-    n.breaks = 5,
-    breaks = seq(0, 3000, 250),
-    name = "L (USD/ha)",
-    guide = guide_colorsteps(keyheight = unit(150, "pt"))
-  ) +
-  theme_bw() +
-  labs(y = "Attainable yield (kg/ha)", x = "SB index") +
-  theme(
-    text = element_text(size = 14),
-    axis.title = element_text(size = 20, face = "bold"),
-    strip.text = element_text(size = 14),
-    axis.text.x = element_text(vjust = 1),
-    legend.position = "right",
-    panel.grid = element_blank()
-  ) +
-
-  # pontos das cultivares
-  geom_point(
-    data = gen_summary,
-    inherit.aes = FALSE,
-    aes(x = SB, y = yield),
-    colour = "black", fill = "black",
-    size = 2.8, shape = 21, stroke = 0.6
-  ) +
-
-  # rótulos das cultivares (ajustados um pouco à direita e para baixo)
-  ggrepel::geom_text_repel(
-    data = gen_summary,
-    inherit.aes = FALSE,
-    aes(x = SB, y = yield, label = gen),
-    nudge_x = 0.08,      # -> direita (SB vai de 0–8; ajuste fino)
-    nudge_y = -150,      # -> baixo (eixo y em kg/ha)
-    min.segment.length = 0,
-    box.padding   = 0.25,
-    point.padding = 0.15,
-    size = 5,
-    fontface = "bold",
-    colour = "black",
-    seed = 123
-  )
-
-heat_loss
-
-
-```
-
-```{r}
-median(combined_data$yld)
+median(data_r1$yld)
+median(data_r1$SB)
 ```
 
 ```{r}
 
 ylmer_simu_min2 = combined_data %>% 
-  mutate(loss =((((((343/10303)*sev)*100)*yld)/100)/1000)) %>%
-   mutate(pressure = case_when(sev > 1.7 ~ "High pressure",
-                           sev <= 1.7 ~"Low pressure"),
-          attainable = case_when(yld >9737.181 ~ "High yield",
-                                 yld <= 9737.181 ~"Low yield"))
+  mutate(loss =((((((25.91/9780.150)*sev)*100)*yld)/100)/1000)) %>%
+   mutate(pressure = case_when(sev > 50 ~ "High pressure",
+                           sev <= 50 ~"Low pressure"),
+          attainable = case_when(yld >7018.605 ~ "High yield",
+                                 yld <= 7018.605 ~"Low yield"))
          
 
 ```
@@ -475,8 +504,8 @@ interval2
 library(ggdist)
 
 ylmer_simu_min = ylmer_simu_min %>% 
-   mutate(pressure = case_when(sev > 1.7 ~ "High pressure",
-                           sev <= 1.7 ~"Low pressure"))
+   mutate(pressure = case_when(sev > 50 ~ "High pressure",
+                           sev <= 50 ~"Low pressure"))
 
 ```
 
