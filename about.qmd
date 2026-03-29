@@ -25,7 +25,7 @@ data2
 
 data2$plot_moist = data2$plot_moist/100
 data2$plot_weight = data2$plot_weight/100
-data2$SB = data2$SB*10
+#data2$SB = data2$SB*10
 
 data22 = data2 %>%
   filter(!is.na(SB)) %>% 
@@ -53,7 +53,7 @@ data222 = data22  %>%
 
 camila$kg_ha = camila$kg_ha*1000
 
-camila$SB = camila$SB/10
+camila$SB = camila$SB/100
 
 camila = camila %>% 
   select(year,trial,gen,trt,plot,blk,SB,kg_ha)
@@ -64,7 +64,7 @@ camila$blk = as.factor(camila$blk)
 camila$trial = as.factor(camila$trial)
 
 data222 = rbind(camila,data222)
-
+data222
 
 ```
 
@@ -282,7 +282,8 @@ model_r2 <- lmer(
     (1 + SB) +
     (1|year/trial), data = data_r2)
 
-
+summary(model_r2)
+confint(model_r2)
 ```
 
 ## Group 3
@@ -300,11 +301,6 @@ model_r3 <- lmer(
 summary(model_r3)
 confint(model_r3)
 ```
-
-```{r}
-sb_ipm = data2
-```
-
 # Economic losses
 
 ## Group 1
@@ -315,16 +311,16 @@ sb_ipm = data2
 
 #combined_data <- expand.grid(sev = sev$sev, yld = yield$yld)
 set.seed(123)
-sev = seq(0, 80,length.out = 400)
+sev = seq(0, 8,length.out = 400)
 yld = seq(4000, 16000,length.out = 400)
-b1 <- runif(100,min = 17.65, max = 33.98)
+b1 <- runif(100,min = 567, max = 796)
 price_rice <- runif(2, min = 300, max = 600)
 
 combined_data <- expand.grid(sev = sev, yld = yld, b1 = b1,price_rice = price_rice)
 
 
 ylmer_simu_min = combined_data %>% 
-  mutate(loss =((((((b1/9780.15)*sev)*100)*yld)/100)/1000)*price_rice)
+  mutate(loss =((((((b1/12368.25)*sev)*100)*yld)/100)/1000)*price_rice)
 
 head(ylmer_simu_min)
 max(ylmer_simu_min$loss)
@@ -334,7 +330,7 @@ max(ylmer_simu_min$loss)
 heat_loss = ylmer_simu_min %>%
   ggplot(aes(sev, yld, fill = loss)) +
   geom_raster() +
-  scale_x_continuous(breaks = seq(0, 80, by = 10)) +
+  scale_x_continuous(breaks = seq(0, 8, by = 1)) +
   scale_y_continuous(breaks = seq(4000, 16000, by = 2000)) +
   
   scale_fill_stepsn(
@@ -703,12 +699,12 @@ simula_LDE <- function(n, media_rp, sd_rp, eficacia, cd_base, custo_range, preco
 
 
 n = 5000 # number of simulations
-media_rp = 10.32 # in ton/ha
+media_rp = 12 # in ton/ha
 sd_rp = 0.70  # SD of attainable yield
 eficacia = rnorm(5000, 0.54, 0.1) #  in proportion
-cd_base = 0.03
-custo_range = c(15, 105) # cust of control (US$)
-preco_range = c(300, 600) # soybean price (US$)
+cd_base = 0.05
+custo_range = c(40, 160) # cust of control (US$)
+preco_range = c(100, 600) # soybean price (US$)
 
 # run the simulation
 simula <- simula_LDE(n, media_rp, sd_rp, eficacia, cd_base, custo_range, preco_range)
@@ -727,7 +723,7 @@ edt_2 = simula |>
                 "#A6764D",   # light green
                 "#6F3F1F"),  # dark green
     n.breaks = 6,             # number of steps (adjust for contrast)
-    breaks = seq(0, 1, 0.2),
+    breaks = seq(0, 8, 1),
     name = "EDT",
     guide = guide_legend(
     override.aes = list(size = 6)   
@@ -777,91 +773,6 @@ edt_density <- ggplot(simula, aes(x = LDE)) +
   )
 
 edt_density
-```
-
-
-
-# Minimum
-
-```{r}
-price <- seq(300,600, length.out = 1000) #600,800,1000,1200,1400,1600
-cost  <- seq(15,105,length.out = 1000) #150,300,450, 600,750,900,1050
-
-#sev = seq(5, 60,length.out = 400)
-#yld = seq(4000, 12000,length.out = 400)
-
-
-scenarios_minimum <- expand.grid(price = price,
-                         cost  = cost)
-```
-
-```{r}
-
-scenarios2 = scenarios_minimum %>% 
-  dplyr::mutate(
-    minimum  = (cost/price)
-  )
-
-
-scenarios2 = scenarios2 %>% 
-  group_by(cost) %>% 
-  mutate(
-mean_yield = mean(minimum, na.rm = TRUE),
-    ci_low = quantile(minimum, 0.025),
-    ci_high = quantile(minimum, 0.975))
-```
-
-```{r, eval = FALSE, echo=FALSE}
-scenarios2 %>% 
-  ggplot(aes(as.factor(price),as.factor(cost), fill = minimum))+ 
-  #ggplot(aes(price,cost, fill = Prob_hf))+
-  #geom_raster()+
-   geom_tile(color = "white", size = 0.5)+
- # scale_fill_distiller(palette = "RdYlGn",breaks = seq(0, 100, by =25),direction = 1)+
-  scale_fill_viridis_b(option = "D", direction = 1)+
-  ggthemes::theme_few()+
- # facet_wrap(~season+pressure)+
-  labs(x = "Price (R$/ton)",
-       y = "Cost (kg/ha)",
-       fill ="t/ha" )+
-  theme(legend.position = "right",
-        legend.justification = 0.5,
-        text = element_text(size = 12, face = "bold"),
-        axis.text.x = element_text(size = 12, face = "bold"),   
-        axis.text.y = element_text(size = 12, face = "bold"))
-```
-
-```{r}
-minimum_plot = scenarios2 %>% 
-  filter(cost <= 300) %>% 
-  ggplot()+
-  #geom_point()+
-  geom_line(aes(cost, ci_low*1000),
-              linetype = 2,
-            size = 1,
-            fill = NA, color = "black")+
-  geom_line(aes(cost, ci_high*1000),
-              linetype = 2,
-            size = 1,
-          fill = NA,color = "black")+
-  geom_line(size = 1.4, aes(cost,mean_yield*1000), color = "black")+
-  theme_bw()+
-    labs(x = "Management cost (USD/ha)",
-       y = "Minimum (kg/ha)",
-       fill ="t/ha" )+
-  scale_y_continuous(breaks = seq(50, 400, by = 50)) +
-  scale_x_continuous(breaks = seq(15, 105, by = 15)) +
-  theme(axis.title = element_text(size = 18, face = "bold"),
-        axis.text.x = element_text(size = 14),   
-        axis.text.y = element_text(size = 14))
-```
-
-```{r}
-#minimum_plot/edt_density|edt_2
-
-#ggsave("fig/min_EDT2.png", bg = "white", dpi = 600, height = 8, width = 16)
-#ggsave("fig/min_EDT2.png", bg = "white", dpi = 600, height = 6, width = 10)
-
 ```
 
 ```{r}
