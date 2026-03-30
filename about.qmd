@@ -282,6 +282,9 @@ model_r2 <- lmer(
     (1 + SB) +
     (1|year/trial), data = data_r2)
 
+```
+
+```{r}
 summary(model_r2)
 confint(model_r2)
 ```
@@ -298,36 +301,89 @@ model_r3 <- lmer(
     (1 + SB) +
     (1|year/trial), data = data_r3)
 
+```
+
+```{r}
 summary(model_r3)
 confint(model_r3)
 ```
+
 # Economic losses
 
 ## Group 1
+
+```{r}
+
+
+set.seed(123)
+sev = seq(0, 8,length.out = 200)
+yld = seq(4000, 16000,length.out = 200)
+b1 <- runif(100,min = 159.97, max = 430.21)
+price_rice <- seq(300, 600,length.out = 10)
+
+combined_data_g1 <- expand.grid(sev = sev, yld = yld, b1 = b1,price_rice = price_rice)
+
+
+ylmer_simu_g1 = combined_data_g1 %>% 
+  mutate(loss =((((((b1/11142.94)*sev)*100)*yld)/100)/1000)*price_rice)
+
+ylmer_simu_g1$group = "Group 1"
+```
+
+## Group 2
+
 
 ```{r}
 #sev  = data.frame(sev = seq(20,100, by = 10))
 #yield = data.frame(yld = seq(4000,16000,by = 2000))
 
 #combined_data <- expand.grid(sev = sev$sev, yld = yield$yld)
+
 set.seed(123)
-sev = seq(0, 8,length.out = 400)
-yld = seq(4000, 16000,length.out = 400)
-b1 <- runif(100,min = 567, max = 796)
-price_rice <- runif(2, min = 300, max = 600)
+sev = seq(0, 8,length.out = 200)
+yld = seq(4000, 16000,length.out = 200)
+b1 <- runif(100,min = 192.59, max = 376.04)
+price_rice <- seq(300, 600,length.out = 10)
 
-combined_data <- expand.grid(sev = sev, yld = yld, b1 = b1,price_rice = price_rice)
+combined_data_g2 <- expand.grid(sev = sev, yld = yld, b1 = b1,price_rice = price_rice)
 
 
-ylmer_simu_min = combined_data %>% 
+ylmer_simu_g2 = combined_data_g2 %>% 
+  mutate(loss =((((((b1/9945.61)*sev)*100)*yld)/100)/1000)*price_rice)
+
+ylmer_simu_g2$group = "Group 2"
+```
+
+## Group 3
+
+
+```{r}
+#sev  = data.frame(sev = seq(20,100, by = 10))
+#yield = data.frame(yld = seq(4000,16000,by = 2000))
+
+#combined_data <- expand.grid(sev = sev$sev, yld = yield$yld)
+
+set.seed(123)
+sev = seq(0, 8,length.out = 200)
+yld = seq(4000, 16000,length.out = 200)
+b1 <- runif(100,min = 567.31, max = 796.82)
+price_rice <- seq(300, 600,length.out = 10)
+
+combined_data_g3 <- expand.grid(sev = sev, yld = yld, b1 = b1,price_rice = price_rice)
+
+
+ylmer_simu_g3 = combined_data_g3 %>% 
   mutate(loss =((((((b1/12368.25)*sev)*100)*yld)/100)/1000)*price_rice)
 
-head(ylmer_simu_min)
-max(ylmer_simu_min$loss)
+ylmer_simu_g3$group = "Group 3"
 ```
 
 ```{r}
-heat_loss = ylmer_simu_min %>%
+ylmer_simu_all = rbind(ylmer_simu_g1,ylmer_simu_g2,ylmer_simu_g3)
+```
+
+```{r}
+heat_loss = ylmer_simu_all %>%
   ggplot(aes(sev, yld, fill = loss)) +
   geom_raster() +
   scale_x_continuous(breaks = seq(0, 8, by = 1)) +
@@ -347,7 +403,7 @@ guide = guide_colorsteps(
     keyheight = unit(150, "pt")   # << AQUI aumenta a altura da legenda
   )
 ) +
-  
+  facet_wrap(~group, ncol =1)+
   theme_bw() +
   labs(
     y = "Attainable yield (kg/ha)",
@@ -676,6 +732,7 @@ ggsave("fig/ec_losses.png", bg = "white", dpi = 600, height = 8 ,width = 16)
 
 # Economic damage threshold
 
+## Group 1
 
 
 ```{r}
@@ -698,20 +755,20 @@ simula_LDE <- function(n, media_rp, sd_rp, eficacia, cd_base, custo_range, preco
 }
 
 
-n = 5000 # number of simulations
-media_rp = 12 # in ton/ha
+n = 50000 # number of simulations
+media_rp = 11.14 # in ton/ha
 sd_rp = 0.70  # SD of attainable yield
-eficacia = rnorm(5000, 0.54, 0.1) #  in proportion
-cd_base = 0.05
+eficacia = rnorm(50000, 0.54, 0.1) #  in proportion
+cd_base = 0.02
 custo_range = c(40, 160) # cust of control (US$)
 preco_range = c(100, 600) # soybean price (US$)
 
 # run the simulation
-simula <- simula_LDE(n, media_rp, sd_rp, eficacia, cd_base, custo_range, preco_range)
+simula_g1 <- simula_LDE(n, media_rp, sd_rp, eficacia, cd_base, custo_range, preco_range)
 ```
 
 ```{r}
-edt_2 = simula |> 
+edt_g1 = simula_g1 |> 
   ggplot(aes(rendimento_potencial, eficacia, 
              color = LDE, size = coeficiente_dano))+
   geom_point()+
@@ -744,16 +801,16 @@ edt_2 = simula |>
     axis.title = element_text(size = 18, face = "bold")
   )
 
-edt_2
+edt_g1
 ```
 ```{r}
-min(simula$LDE)
-mean(simula$LDE)
+min(simula_g1$LDE)
+mean(simula_g1$LDE)
 ```
 
 ```{r}
 library(ggdist) 
-edt_density <- ggplot(simula, aes(x = LDE)) +
+edt_density_g1 <- ggplot(simula_g1, aes(x = LDE)) +
   stat_halfeye(fill = "#7FBF7B", alpha = 0.7) +
   geom_vline(aes(xintercept = median(LDE)), color = "#6F3F1F", linetype = "dashed", size = 1) +
  # annotate("text", x = 0.6, y = 0.90, label = "Median = 1.54%", color = "black", size = 4.5) +
@@ -772,7 +829,207 @@ edt_density <- ggplot(simula, aes(x = LDE)) +
     axis.title = element_text(size = 18, face = "bold")
   )
 
-edt_density
+edt_density_g1
+```
+## Group 2
+
+```{r}
+# Function to Simulate EDC
+set.seed(123)
+
+simula_LDE <- function(n, media_rp, sd_rp, eficacia, cd_base, custo_range, preco_range) {
+  simulacoes <- tibble(
+    rendimento_potencial = rnorm(n, media_rp, sd_rp),
+    custo_controle = runif(n, custo_range[1], custo_range[2]),
+    preco_produto = runif(n, preco_range[1], preco_range[2]),
+    eficacia = eficacia
+  ) %>% 
+    mutate(
+      cd_base = cd_base,
+      coeficiente_dano = cd_base * rendimento_potencial,
+      LDE = (custo_controle / (preco_produto * coeficiente_dano)) * eficacia
+    )
+  return(simulacoes)
+}
+
+
+n = 50000 # number of simulations
+media_rp = 9.9 # in ton/ha
+sd_rp = 0.70  # SD of attainable yield
+eficacia = rnorm(50000, 0.54, 0.1) #  in proportion
+cd_base = 0.02
+custo_range = c(40, 160) # cust of control (US$)
+preco_range = c(100, 600) # soybean price (US$)
+
+# run the simulation
+simula_g2 <- simula_LDE(n, media_rp, sd_rp, eficacia, cd_base, custo_range, preco_range)
+```
+
+```{r}
+edt_g2 = simula_g2 |> 
+  ggplot(aes(rendimento_potencial, eficacia, 
+             color = LDE, size = coeficiente_dano))+
+  geom_point()+
+  #scale_color_viridis_c(labels = scales::number_format(accuracy = 0.1))+
+    scale_colour_stepsn(
+    colours = c("#2E8B57",   # dark brown
+                "#7FBF7B",   # medium brown
+                "#D1BE91",   # beige transition
+                "#A6764D",   # light green
+                "#6F3F1F"),  # dark green
+    n.breaks = 6,             # number of steps (adjust for contrast)
+    breaks = seq(0, 8, 1),
+    name = "EDT",
+    guide = guide_legend(
+    override.aes = list(size = 6)   
+  )
+) +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.25)) +
+   labs(color = "EDT",
+     x = "Attainable yield (ton/ha)",
+       y = "Fungicide efficacy (%)",
+     size = "DC")+
+  theme_bw()+
+    theme(
+    legend.position = "top",
+    text = element_text(size = 14),
+    legend.justification = "center",
+    legend.margin = margin(t = 0, r = 20, b = 0, l = 0),  # Aumenta a margem à direita da legenda
+    strip.text = element_text(size = 18,face = "bold"),
+    axis.title = element_text(size = 18, face = "bold")
+  )
+
+edt_g2
+```
+
+
+```{r}
+min(simula_g2$LDE)
+mean(simula_g2$LDE)
+```
+
+```{r}
+library(ggdist) 
+edt_density_g2 <- ggplot(simula_g2, aes(x = LDE)) +
+  stat_halfeye(fill = "#7FBF7B", alpha = 0.7) +
+  geom_vline(aes(xintercept = median(LDE)), color = "#6F3F1F", linetype = "dashed", size = 1) +
+ # annotate("text", x = 0.6, y = 0.90, label = "Median = 1.54%", color = "black", size = 4.5) +
+  #annotate("text", x = 0.6, y = 0.80, label = "95% CI = 0.89%, 2.53%", color = "black", size = 4.5) +
+  labs(
+    x = "Economic Damage Threshold (EDT)",
+    y = "Density"
+  ) +
+  theme_bw()+
+    theme(
+    legend.position = "right",
+    text = element_text(size = 14),
+    legend.justification = "center",
+    legend.margin = margin(t = 0, r = 20, b = 0, l = 0),  # Aumenta a margem à direita da legenda
+    strip.text = element_text(size = 18,face = "bold"),
+    axis.title = element_text(size = 18, face = "bold")
+  )
+
+edt_density_g2
+```
+## Group 3
+
+```{r}
+# Function to Simulate EDC
+set.seed(123)
+
+simula_LDE <- function(n, media_rp, sd_rp, eficacia, cd_base, custo_range, preco_range) {
+  simulacoes <- tibble(
+    rendimento_potencial = rnorm(n, media_rp, sd_rp),
+    custo_controle = runif(n, custo_range[1], custo_range[2]),
+    preco_produto = runif(n, preco_range[1], preco_range[2]),
+    eficacia = eficacia
+  ) %>% 
+    mutate(
+      cd_base = cd_base,
+      coeficiente_dano = cd_base * rendimento_potencial,
+      LDE = (custo_controle / (preco_produto * coeficiente_dano)) * eficacia
+    )
+  return(simulacoes)
+}
+
+
+n = 50000 # number of simulations
+media_rp = 12.36 # in ton/ha
+sd_rp = 0.70  # SD of attainable yield
+eficacia = rnorm(50000, 0.54, 0.1) #  in proportion
+cd_base = 0.05
+custo_range = c(40, 160) # cust of control (US$)
+preco_range = c(100, 600) # soybean price (US$)
+
+# run the simulation
+simula_g3 <- simula_LDE(n, media_rp, sd_rp, eficacia, cd_base, custo_range, preco_range)
+```
+
+```{r}
+edt_g3 = simula_g3 |> 
+  ggplot(aes(rendimento_potencial, eficacia, 
+             color = LDE, size = coeficiente_dano))+
+  geom_point()+
+  #scale_color_viridis_c(labels = scales::number_format(accuracy = 0.1))+
+    scale_colour_stepsn(
+    colours = c("#2E8B57",   # dark brown
+                "#7FBF7B",   # medium brown
+                "#D1BE91",   # beige transition
+                "#A6764D",   # light green
+                "#6F3F1F"),  # dark green
+    n.breaks = 6,             # number of steps (adjust for contrast)
+    breaks = seq(0, 8, 1),
+    name = "EDT",
+    guide = guide_legend(
+    override.aes = list(size = 6)   
+  )
+) +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.25)) +
+   labs(color = "EDT",
+     x = "Attainable yield (ton/ha)",
+       y = "Fungicide efficacy (%)",
+     size = "DC")+
+  theme_bw()+
+    theme(
+    legend.position = "top",
+    text = element_text(size = 14),
+    legend.justification = "center",
+    legend.margin = margin(t = 0, r = 20, b = 0, l = 0),  # Aumenta a margem à direita da legenda
+    strip.text = element_text(size = 18,face = "bold"),
+    axis.title = element_text(size = 18, face = "bold")
+  )
+
+edt_g3
+```
+
+
+```{r}
+min(simula_g3$LDE)
+mean(simula_g3$LDE)
+```
+
+```{r}
+
+edt_density_g3 <- ggplot(simula_g3, aes(x = LDE)) +
+  stat_halfeye(fill = "#7FBF7B", alpha = 0.7) +
+  geom_vline(aes(xintercept = median(LDE)), color = "#6F3F1F", linetype = "dashed", size = 1) +
+ # annotate("text", x = 0.6, y = 0.90, label = "Median = 1.54%", color = "black", size = 4.5) +
+  #annotate("text", x = 0.6, y = 0.80, label = "95% CI = 0.89%, 2.53%", color = "black", size = 4.5) +
+  labs(
+    x = "Economic Damage Threshold (EDT)",
+    y = "Density"
+  ) +
+  theme_bw()+
+    theme(
+    legend.position = "right",
+    text = element_text(size = 14),
+    legend.justification = "center",
+    legend.margin = margin(t = 0, r = 20, b = 0, l = 0),  # Aumenta a margem à direita da legenda
+    strip.text = element_text(size = 18,face = "bold"),
+    axis.title = element_text(size = 18, face = "bold")
+  )
+
+edt_density_g3
 ```
 
 ```{r}
@@ -781,7 +1038,7 @@ library(ggplot2)
 library(patchwork)
 library(cowplot)
 
-base_plot <- (minimum_plot / edt_density | edt_2) +
+base_plot <- (edt_g1 / edt_g2 / edt_g3 | edt_density_g1 / edt_density_g2 / edt_density_g3) +
   plot_layout(guides = "collect") +
   plot_annotation(
     theme = theme(
@@ -814,5 +1071,148 @@ final_plot
 ```
 
 ```{r}
-ggsave("fig/min_EDT.png", bg = "white", dpi = 600, height = 6, width = 10)
+ggsave("fig/EDT.png", bg = "white", dpi = 600, height = 6, width = 10)
 ```
+
+## All groups
+```{r}
+simula_g1$group = "Group 1"
+simula_g2$group = "Group 2"
+simula_g3$group = "Group 3"
+
+simu_all = rbind(simula_g1,simula_g2, simula_g3)
+```
+```{r}
+
+# GROUP 1
+
+set.seed(123)
+
+DC_g1 <- 0.02
+price_rice <- seq(300, 600,length.out = 200)
+cost <- seq(40, 160,length.out = 200)
+lambda = seq(0.40, 0.80,length.out = 200)
+
+combined_data_g1 <- expand.grid(lambda = lambda, price_rice = price_rice,
+                             cost = cost, DC = DC_g1)
+
+
+EDT_simulated_g1 = combined_data_g1 %>% 
+  mutate(EDT = (cost/(price_rice*DC))*lambda)
+
+EDT_simulated_g1$group = "Group 1"
+# GROUP 2
+
+DC_g2 <- 0.02
+
+combined_data_g2 <- expand.grid(lambda = lambda, price_rice = price_rice,
+                             cost = cost, DC = DC_g2)
+
+
+EDT_simulated_g2 = combined_data_g2 %>% 
+  mutate(EDT = (cost/(price_rice*DC))*lambda)
+
+EDT_simulated_g2$group = "Group 2"
+
+# GROUP 3
+
+DC_g3 <- 0.05
+
+combined_data_g3 <- expand.grid(lambda = lambda, price_rice = price_rice,
+                             cost = cost, DC = DC_g3)
+
+
+EDT_simulated_g3 = combined_data_g3 %>% 
+  mutate(EDT = (cost/(price_rice*DC))*lambda)
+
+EDT_simulated_g3$group = "Group 3"
+
+simu_all = rbind(EDT_simulated_g1,EDT_simulated_g2,EDT_simulated_g3)
+```
+
+```{r}
+
+heat_EDT_all = simu_all %>%
+ # filter(group == "Group 1") %>% 
+  filter(EDT <=9) %>% 
+  filter(cost <=120) %>% 
+  #filter(lambda >= 0.75) %>% 
+ # filter(lambda <= 0.76) %>% 
+  ggplot(aes(lambda, cost, fill = EDT)) +
+  geom_raster() +
+  scale_y_continuous(breaks = seq(40, 120, by = 20),
+                     expand = c(0.02,0.02)) +
+  scale_x_continuous(breaks = seq(0.40, 0.80, by = 0.10),
+                     expand = c(0,0)) +
+  #scale_y_continuous(breaks = seq(100, 600, by = 100)) +
+scale_fill_stepsn(
+    colours = c("#2E8B57",   # dark brown
+                "#7FBF7B",   # medium brown
+                "#D1BE91",   # beige transition
+                "#A6764D",   # light green
+                "#6F3F1F"),  # dark green
+    n.breaks = 6,             # number of steps (adjust for contrast)
+    breaks = seq(0, 8, 1),
+    name = "EDT",
+    guide = guide_legend(
+    override.aes = list(size = 6)   
+  )
+) +
+  facet_wrap(~group, ncol = 1)+
+  
+  theme_bw() +
+  labs(
+    y = "Price (USD/ha)",
+    x = "Control efficacy (%)"
+  ) +
+  theme(
+    text = element_text(size = 12),
+    axis.title = element_text(size = 14, face = "bold"),
+    strip.text = element_text(size = 14,face = "bold"),
+    axis.text.x = element_text(vjust = 1),
+    legend.position = "right",
+    panel.grid = element_blank(),
+    strip.background = element_blank()
+  )
+ 
+ heat_EDT_all
+```
+
+
+```{r}
+
+edt_density_all <- simu_all %>% 
+  filter(EDT <=9) %>% 
+  filter(cost <=120) %>% 
+  ggplot(aes(x = EDT)) +
+  stat_halfeye(fill = "#7FBF7B", alpha = 0.7) +
+  geom_vline(aes(xintercept = median(EDT)), color = "#6F3F1F", linetype = "dashed", size = 1) +
+ # annotate("text", x = 0.6, y = 0.90, label = "Median = 1.54%", color = "black", size = 4.5) +
+  #annotate("text", x = 0.6, y = 0.80, label = "95% CI = 0.89%, 2.53%", color = "black", size = 4.5) +
+  labs(
+    x = "Economic Damage Threshold (EDT)",
+    y = "Density"
+  ) +
+  facet_wrap(~group, ncol = 1)+
+  theme_bw()+
+    theme(
+    legend.position = "right",
+    text = element_text(size = 14),
+    legend.justification = "center",
+    legend.margin = margin(t = 0, r = 20, b = 0, l = 0),  # Aumenta a margem à direita da legenda
+    strip.text = element_text(size = 14,face = "bold"),
+    axis.title = element_text(size = 14, face = "bold"),
+    strip.background = element_blank()
+  )
+
+edt_density_all
+```
+
+```{r}
+edt_density_all|heat_EDT_all
+```
+```{r}
+ggsave("fig/EDT2.png", bg = "white", dpi = 600, height = 6, width = 10)
+
+```
+
