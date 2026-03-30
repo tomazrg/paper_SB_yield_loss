@@ -254,7 +254,7 @@ c_03 = damage_coef2 %>%
 
 ## Group 1
 ```{r}
-data_r1 = data22 %>% 
+data_r1 = data222 %>% 
   filter(gen %in% c_01$gen)
 
 
@@ -272,7 +272,7 @@ confint(model_r1)
 
 ## Group 2
 ```{r}
-data_r2 = data22 %>% 
+data_r2 = data222 %>% 
   filter(gen %in% c_02$gen)
 
 
@@ -281,7 +281,6 @@ model_r2 <- lmer(
   kg_ha ~ SB +
     (1 + SB) +
     (1|year/trial), data = data_r2)
-
 ```
 
 ```{r}
@@ -291,7 +290,7 @@ confint(model_r2)
 
 ## Group 3
 ```{r}
-data_r3 = data22 %>% 
+data_r3 = data222 %>% 
   filter(gen %in% c_03$gen)
 
 
@@ -316,8 +315,8 @@ confint(model_r3)
 
 
 set.seed(123)
-sev = seq(0, 8,length.out = 200)
-yld = seq(4000, 16000,length.out = 200)
+sev = seq(0, 8,length.out = 100)
+yld = seq(4000, 16000,length.out = 100)
 b1 <- runif(100,min = 159.97, max = 430.21)
 price_rice <- seq(300, 600,length.out = 10)
 
@@ -328,6 +327,10 @@ ylmer_simu_g1 = combined_data_g1 %>%
   mutate(loss =((((((b1/11142.94)*sev)*100)*yld)/100)/1000)*price_rice)
 
 ylmer_simu_g1$group = "Group 1"
+ylmer_simu_g1$b0 = 11142.94
+
+
+gc()
 ```
 
 ## Group 2
@@ -340,8 +343,8 @@ ylmer_simu_g1$group = "Group 1"
 #combined_data <- expand.grid(sev = sev$sev, yld = yield$yld)
 
 set.seed(123)
-sev = seq(0, 8,length.out = 200)
-yld = seq(4000, 16000,length.out = 200)
+sev = seq(0, 8,length.out = 100)
+yld = seq(4000, 16000,length.out = 100)
 b1 <- runif(100,min = 192.59, max = 376.04)
 price_rice <- seq(300, 600,length.out = 10)
 
@@ -352,6 +355,9 @@ ylmer_simu_g2 = combined_data_g2 %>%
   mutate(loss =((((((b1/9945.61)*sev)*100)*yld)/100)/1000)*price_rice)
 
 ylmer_simu_g2$group = "Group 2"
+ylmer_simu_g2$b0 = 9945.61
+
+gc()
 ```
 
 ## Group 3
@@ -364,8 +370,8 @@ ylmer_simu_g2$group = "Group 2"
 #combined_data <- expand.grid(sev = sev$sev, yld = yield$yld)
 
 set.seed(123)
-sev = seq(0, 8,length.out = 200)
-yld = seq(4000, 16000,length.out = 200)
+sev = seq(0, 8,length.out = 100)
+yld = seq(4000, 16000,length.out = 100)
 b1 <- runif(100,min = 567.31, max = 796.82)
 price_rice <- seq(300, 600,length.out = 10)
 
@@ -376,18 +382,25 @@ ylmer_simu_g3 = combined_data_g3 %>%
   mutate(loss =((((((b1/12368.25)*sev)*100)*yld)/100)/1000)*price_rice)
 
 ylmer_simu_g3$group = "Group 3"
+ylmer_simu_g3$b0 = 12368.25
+
+
+gc()
 ```
 
 ```{r}
 ylmer_simu_all = rbind(ylmer_simu_g1,ylmer_simu_g2,ylmer_simu_g3)
+ylmer_simu_all
 ```
 
 ```{r}
 heat_loss = ylmer_simu_all %>%
   ggplot(aes(sev, yld, fill = loss)) +
   geom_raster() +
-  scale_x_continuous(breaks = seq(0, 8, by = 1)) +
-  scale_y_continuous(breaks = seq(4000, 16000, by = 2000)) +
+  scale_x_continuous(breaks = seq(0, 8, by = 1),
+                     expand = c(0.02,0.02)) +
+  scale_y_continuous(breaks = seq(4000, 16000, by = 2000),
+                     expand = c(0.02,0.02)) +
   
   scale_fill_stepsn(
     colours = c("#2E8B57",   # dark brown
@@ -410,13 +423,17 @@ guide = guide_colorsteps(
     x = "SB index"
   ) +
   theme(
-    text = element_text(size = 14),
-    axis.title = element_text(size = 20, face = "bold"),
-    strip.text = element_text(size = 14),
+    text = element_text(size = 12),
+    axis.title = element_text(size = 14, face = "bold"),
+    strip.text = element_text(size = 14,face = "bold"),
     axis.text.x = element_text(vjust = 1),
     legend.position = "right",
-    panel.grid = element_blank()
+    legend.box = "horizontal",
+    panel.grid = element_blank(),
+    strip.background = element_blank()
   )
+
+gc()
  
  heat_loss
 ```
@@ -425,16 +442,24 @@ guide = guide_colorsteps(
 ```{r}
 median(data_r1$yld)
 median(data_r1$SB)
+
+median(data_r2$SB)
+
+median(data_r3$SB)
+
+median(data222$SB)
 ```
 
 ```{r}
 
-ylmer_simu_min2 = combined_data %>% 
-  mutate(loss =((((((25.91/9780.150)*sev)*100)*yld)/100)/1000)) %>%
-   mutate(pressure = case_when(sev > 50 ~ "High pressure",
-                           sev <= 50 ~"Low pressure"),
-          attainable = case_when(yld >7018.605 ~ "High yield",
-                                 yld <= 7018.605 ~"Low yield"))
+ylmer_simu_min2 = ylmer_simu_all %>% 
+  group_by(group) %>% 
+  mutate(loss =((((((b1/b0)*sev)*100)*yld)/100)/1000)) %>%
+  group_by(group) %>% 
+   mutate(pressure = case_when(sev > median(sev) ~ "High pressure",
+                           sev <= median(sev) ~"Low pressure"),
+          attainable = case_when(yld > median(yld) ~ "High yield",
+                                 yld <= median(yld) ~"Low yield"))
          
 
 ```
@@ -448,7 +473,7 @@ ylmer_simu_min2 %>%
 
 ```{r}
 simu_summary <- ylmer_simu_min2 %>%
-  group_by(pressure,attainable) %>%
+  group_by(group,pressure,attainable) %>%
   summarise(
     mean_loss = mean(loss, na.rm = TRUE),
     ci_low = quantile(loss, 0.025),
@@ -522,7 +547,7 @@ interval2 <- ylmer_simu_min2 %>%
     nudge_x    = 0.08,    # -> direita (ajuste fino conforme seu espaçamento)
     nudge_y    = 0.08,       # pequeno empurrão para não colar na barra
     hjust      = -0.4,          # à direita; ajuste conforme preferir
-    vjust      = 2,       # ligeiramente acima da ponta do intervalo
+    vjust      = 1,       # ligeiramente acima da ponta do intervalo
     size       = 5,
     fontface   = "bold.italic"
     #, check_overlap = TRUE   # opcional para evitar sobreposição
@@ -534,179 +559,31 @@ interval2 <- ylmer_simu_min2 %>%
                         name = "Attainable") +
   scale_shape_manual(values = c("Low yield" = 16, "High yield" = 17),
                      name = "Attainable") +
-  
+  facet_wrap(~group, ncol = 1)+
   theme_bw() +
   labs(
     x = "Pressure level",
     y = "Yield loss (ton/ha)"
   ) +
   theme(
-    text = element_text(size = 14),
-    axis.title = element_text(size = 20, face = "bold"),
-    title = element_text(face = "bold"),
+    text = element_text(size = 12),
+    axis.title = element_text(size = 14, face = "bold"),
+    strip.text = element_text(size = 14,face = "bold"),
+    axis.text.x = element_text(vjust = 1),
     legend.position = "none",
-    legend.box = "horizontal"
+    legend.box = "horizontal",
+    strip.background = element_blank()
   )
-
+  
+  
 interval2
 
-```
-
-```{r}
-library(ggdist)
-
-ylmer_simu_min = ylmer_simu_min %>% 
-   mutate(pressure = case_when(sev > 50 ~ "High pressure",
-                           sev <= 50 ~"Low pressure"))
-
-```
-
-```{r}
-
-
-
-
-# --- Libraries ---------------------------------------------------------------
-library(dplyr)
-library(ggplot2)
-library(tibble)
-
-# --- Data prep ---------------------------------------------------------------
-# Expect columns: loss (numeric), pressure (factor with 2 levels)
-df <- ylmer_simu_min %>%
-  mutate(pressure = factor(pressure))
-
-# Validate
-stopifnot(all(c("loss", "pressure") %in% names(df)))
-if (nlevels(df$pressure) != 2) {
-  stop("This script expects exactly two pressure levels; found: ",
-       paste(levels(df$pressure), collapse = ", "))
-}
-
-# Set the level names you want to treat as "low" vs "high"
-lvl_low  <- "Low pressure"
-lvl_high <- "High pressure"
-if (!all(c(lvl_low, lvl_high) %in% levels(df$pressure))) {
-  stop("Level names not found in df$pressure. Levels are: ",
-       paste(levels(df$pressure), collapse = ", "))
-}
-
-# Manual colors for legend
-pressure_cols <- c(
-  `High pressure`  = "#6F3F1F", # brown
-  `Low pressure` = "#2E8B57"  # green #7FBF7B #6F3F1F
-)
-
-# --- Helper: safe bandwidth (avoids approx/bw errors) ------------------------
-safe_bw <- function(x) {
-  x <- x[is.finite(x)]
-  if (length(x) >= 2) {
-    # Try standard rule; fallback if it fails
-    bw <- tryCatch(stats::bw.nrd0(x), error = function(e) NA_real_)
-    if (is.na(bw) || bw <= 0) {
-      # Fallback: heuristic based on range
-      rng <- diff(range(x))
-      bw <- max(rng / 50, .Machine$double.eps)
-    }
-  } else {
-    # If <2 values, choose tiny positive bw so density is effectively flat
-    bw <- 1e-6
-  }
-  bw
-}
-
-# --- Mixture-dominance segmentation ------------------------------------------
-# Prevalence weights
-p_low  <- mean(df$pressure == lvl_low)
-p_high <- mean(df$pressure == lvl_high)
-
-# Bandwidth (shared for all densities to keep them comparable)
-bw_all <- safe_bw(df$loss)
-
-# Overall density on full data
-d_all <- density(df$loss, bw = bw_all, na.rm = TRUE)
-dd    <- tibble(x = d_all$x, y_all = d_all$y)
-
-# Group vectors
-loss_low  <- df$loss[df$pressure == lvl_low]
-loss_high <- df$loss[df$pressure == lvl_high]
-
-# Group densities on the same grid; if group has <2 points, make it ~0
-d_low  <- if (sum(is.finite(loss_low))  >= 2) {
-  density(loss_low,  bw = bw_all, from = min(dd$x), to = max(dd$x), n = length(dd$x))
-} else {
-  list(x = dd$x, y = rep(0, length(dd$x)))
-}
-d_high <- if (sum(is.finite(loss_high)) >= 2) {
-  density(loss_high, bw = bw_all, from = min(dd$x), to = max(dd$x), n = length(dd$x))
-} else {
-  list(x = dd$x, y = rep(0, length(dd$x)))
-}
-
-# Dominance at each x (which group contributes more to the mixture)
-dd <- dd %>%
-  mutate(
-    mix_low  = p_low  * d_low$y,
-    mix_high = p_high * d_high$y,
-    segment  = if_else(mix_low >= mix_high, lvl_low, lvl_high)
-  )
-
-# --- Boundary (where segment flips) ------------------------------------------
-# Find indices where segment changes; take first boundary for the dashed line
-chg_idx <- which(diff(as.numeric(factor(dd$segment, levels = c(lvl_low, lvl_high)))) != 0)
-boundary_df <- if (length(chg_idx) >= 1) {
-  tibble(x = dd$x[chg_idx[1] + 1])  # +1: first x in the new segment
-} else {
-  tibble(x = numeric(0))            # empty -> ggplot draws nothing (no error)
-}
-
-# --- Split for plotting -------------------------------------------------------
-dd_low  <- dd %>% filter(segment == lvl_low)
-dd_high <- dd %>% filter(segment == lvl_high)
-
-# --- Plot --------------------------------------------------------------------
-ec_losses = ggplot() +
-  # Areas for each segment of the single density (legend via fill mapping)
-  geom_area(data = dd_low,
-            aes(x, y_all, fill = segment),
-            color = NA, alpha = 0.70) +
-  geom_area(data = dd_high,
-            aes(x, y_all, fill = segment),
-            color = NA, alpha = 0.85) + #
-  # Single outline keeps the silhouette crisp
-  geom_line(data = dd, aes(x, y_all), color = "white", linewidth = 1.5) +
-  # Dashed vertical line at the transition (if any)
-  geom_vline(data = boundary_df, aes(xintercept = x),
-             linetype = "dashed", linewidth = 1, size = 2) +
-  # Manual legend
-  scale_fill_manual(
-    name   = "Pressure",
-    values = pressure_cols,
-    breaks = c(lvl_low, lvl_high)
-  ) +
-  theme_bw() +
- scale_x_continuous(breaks = seq(0, 2500, by = 250))+
-  xlim(0,2500)+
-  labs(
-    x = "Economic losses (USD/ha)",
-    y = "Density"
-  ) +
-  theme(
-    text = element_text(face = "bold", size = 14),
-    axis.title = element_text(size = 20, face = "bold"),
-    axis.text.y = element_blank(),
-    axis.title.y = element_blank(),
-    legend.position = "none"
-  )
-
-
-ec_losses
 ```
 
 
 ```{r}
 library(cowplot)
-base_plot <- (interval2 / ec_losses | heat_loss) +
+base_plot <- (interval2 | heat_loss) +
   plot_layout(guides = "collect")
 
 
@@ -716,7 +593,7 @@ base_grob <- patchworkGrob(base_plot)
 
 final_plot <- ggdraw(base_grob) +
   draw_plot_label(
-    label = c("(a)", "(b)", "(c)"),
+    label = c("(a)", "(b)"),
     x     = c(0, 0, 0.46), 
     y     = c(1, 0.5, 1),   
     size  = 18,                    
@@ -727,7 +604,9 @@ final_plot <- ggdraw(base_grob) +
 final_plot
 
 
-ggsave("fig/ec_losses.png", bg = "white", dpi = 600, height = 8 ,width = 16)
+ggsave("fig/ec_losses.png", bg = "white", dpi = 600, height = 6, width = 10)
+
+gc()
 ```
 
 # Economic damage threshold
@@ -803,6 +682,8 @@ edt_g1 = simula_g1 |>
 
 edt_g1
 ```
+
+
 ```{r}
 min(simula_g1$LDE)
 mean(simula_g1$LDE)
@@ -1215,4 +1096,456 @@ edt_density_all|heat_EDT_all
 ggsave("fig/EDT2.png", bg = "white", dpi = 600, height = 6, width = 10)
 
 ```
+
+# Elasticidade
+
+```{r}
+
+# Parâmetros do modelo (exemplo)
+beta0 <- 11142.94
+beta1 <- -292
+
+# Função de elasticidade
+elasticidade <- function(S, b0, b1) {
+  yield <- b0 + b1 * S
+  E <- b1 * (S / yield)
+  return(E)
+}
+
+# Severidade de 1% a 80%
+S <- seq(0, 9, by = 0.01)
+E <- sapply(S, elasticidade, b0 = beta0, b1 = beta1)
+
+# Plot
+plot(S, E, type="l", lwd=2, col="blue",
+     xlab="Severidade (%)",
+     ylab="Elasticidade da perda",
+     main="Elasticidade da perda ao longo da severidade")
+abline(h=0, lty=2)
+
+
+```
+
+```{r}
+
+# Parâmetros de exemplo
+mod <- list(
+  GROUP1   = c(beta0=11142.94, beta1=-292),
+  GROUP2  = c(beta0=9692.06, beta1=-206.01),
+  GROUP3  = c(beta0=12368.25, beta1=-682.34)
+)
+
+S <- seq(1, 8, 1)
+
+plot(NULL, xlim=c(1,8), ylim=c(-1,0),
+     xlab="Severidade (%)", ylab="Elasticidade",
+     main="Comparação da elasticidade entre cultivares")
+
+cols <- c("darkgreen", "orange", "red")
+
+i <- 1
+for(cult in names(mod)) {
+  beta0 <- mod[[cult]][1]
+  beta1 <- mod[[cult]][2]
+  E <- sapply(S, elasticidade, b0=beta0, b1=beta1)
+  
+  lines(S, E, col=cols[i], lwd=2)
+  
+  i <- i + 1
+}
+
+legend("bottomleft", legend=names(mod), col=cols, lwd=2)
+
+```
+
+```{r}
+
+# Coefs estimados + erros padrão
+beta0_hat <- 9692.06 #11204.31
+beta1_hat <- -206
+se_b0 <- 200
+se_b1 <- 8
+
+# Quantas simulações
+n <- 50000
+
+# Simulação dos coeficientes
+b0_sim <- rnorm(n, beta0_hat, se_b0)
+b1_sim <- rnorm(n, beta1_hat, se_b1)
+
+# Severidade de interesse (ex.: 20%)
+S <- c(0,1,2,3,4,5,6,7,8,9)
+
+# Elasticidade simulada
+E_sim <- mapply(elasticidade, S=S, b0=b0_sim, b1=b1_sim)
+
+# Histograma
+hist(E_sim, breaks=40, col="skyblue",
+     main="Distribuição da elasticidade (Monte Carlo)",
+     xlab="Elasticidade da perda")
+
+abline(v=median(E_sim), col="red", lwd=2)
+
+
+E_sim = as.data.frame(E_sim)
+```
+```{r}
+library(dplyr)
+library(tidyr)
+
+# Severidades
+S <- 0:9
+
+# Dataframe base das simulações
+sim_df <- expand_grid(
+  sim = 1:n,
+  S   = S
+) %>%
+  mutate(
+    b0 = b0_sim[sim],
+    b1 = b1_sim[sim],
+    E_sim = elasticidade(S = S, b0 = b0, b1 = b1),
+    E_sim = E_sim*100
+  ) %>% 
+  filter(!E_sim <=-100)
+
+
+sim_df %>% 
+  ggplot(aes(S,E_sim))+
+  geom_jitter(color = "grey60")+
+  geom_smooth(se = F)+
+  theme_bw()
+```
+
+```{r}
+
+library(dplyr)
+library(tidyr)
+
+set.seed(123)
+
+b0_sim = seq(4000, 16000,length.out = 400)
+
+b1_sim <- runif(400,min = 567.31, max = 796.82)
+b1_sim <- runif(400,min = 192.59, max = 376.04)
+b1_sim <- runif(400,min = 159.97, max = 796.82)
+
+
+n <- 50000
+b0_sim <- rnorm(n, 12368.25, 200)
+b1_sim <- rnorm(n, -682, 8)
+
+S_seq <- 0:9
+
+
+sim_df <- expand_grid(
+  sim = 1:n,
+  S   = S_seq
+) %>%
+  mutate(
+    b0 = b0_sim[sim],
+    b1 = b1_sim[sim],
+    Y  = b0 + b1 * S,
+    Y0 = b0
+  )
+
+
+
+sim_df <- expand_grid(
+    S = S_seq,
+    b0 = b0_sim,
+    b1 = b1_sim
+) %>%
+  mutate(
+    Y  = b0 + b1 * S,
+    Y0 = b0
+  )
+
+
+
+sim_df <- sim_df %>%
+  mutate(
+    YL_rel = (Y0 - Y) / Y0 * 100
+  )
+
+```
+
+```{r}
+sim_df <- sim_df %>%
+  mutate(
+    Elasticity = b1 * (S / Y)
+  )
+
+threshold_E05 <- sim_df %>%
+  filter(Elasticity <= -0.8) %>%
+  group_by(sim) %>%
+  summarise(
+    S_E05 = min(S)
+  )
+
+
+sim_df <- sim_df %>%
+  mutate(
+    TI = Y / Y0)
+
+sim_df %>% 
+  ggplot(aes(S,TI))+
+  geom_point()
+```
+```{r}
+DC_df <- data.frame(
+  DC = -b1_sim / b0_sim
+)
+
+quantile(DC_df$DC, c(0.025, 0.5, 0.975))
+
+
+
+sim_df %>%
+ group_by(S) %>%
+  summarise(
+    E_med = median(Elasticity),
+    E_lwr = quantile(Elasticity, 0.025),
+    E_upr = quantile(Elasticity, 0.975))
+```
+
+```{r}
+tradeoff_df <- data.frame(
+  B0 = b0_sim,
+  DC = b1_sim / b0_sim,
+  B1 = b1_sim
+)
+
+cor(tradeoff_df$B0, tradeoff_df$DC)
+
+tradeoff_df <- sim_df %>% 
+  mutate(
+     B0 = b0,
+  DC = b1 / b0,
+  B1 = b1
+  )
+
+tradeoff_df %>% 
+  ggplot(aes(B0,DC, color = B1))+
+  geom_jitter()+
+  geom_smooth(se = F, color = NA)+
+  theme_bw()+
+   scale_colour_stepsn(
+    colours = c("#2E8B57",   # dark brown
+                "#7FBF7B",   # medium brown
+                "#D1BE91",   # beige transition
+                "#A6764D",   # light green
+                "#6F3F1F"),  # dark green
+    n.breaks = 6,             # number of steps (adjust for contrast)
+    name = "Slope",
+  guide = guide_coloursteps(
+    nrow = 1,           
+    byrow = TRUE,
+    title.position = "top",
+    override.aes = list(size = 6)
+  )
+  )+
+   labs(x = "Attainable yield (ton/ha)",
+       y = "Damage coefficient (%/p.p)")+
+  theme_bw()+
+    theme(
+    legend.position = "top",
+    text = element_text(size = 14),
+    legend.justification = "center",
+    legend.margin = margin(t = 0, r = 20, b = 0, l = 0),  # Aumenta a margem à direita da legenda
+    strip.text = element_text(size = 18,face = "bold"),
+    axis.title = element_text(size = 18, face = "bold"),
+    legend.key.width = unit(2, "cm")
+  )+
+  scale_x_continuous(breaks = seq(4000, 16000, by = 4000),
+                     expand = c(0.02,0.02)) +
+  scale_y_continuous(breaks = seq(0.0, 0.20, by = 0.05),
+                     expand = c(0.02,0.02))
+
+
+max(tradeoff_df$DC)
+```
+```{r}
+library(dplyr)
+library(ggplot2)
+
+tradeoff_df2 <- tradeoff_df %>%
+  mutate(
+    B1_class = cut(
+      B1,
+      breaks = c(-800, -725, -675, -625, -575),
+      labels = c("-750", "-700", "-650", "-600"),
+      include.lowest = TRUE
+    )
+  )
+
+
+area_df <- tradeoff_df2 %>%
+  mutate(
+    B0_bin = cut(B0, breaks = 100)
+  ) %>%
+  group_by(B1_class, B0_bin) %>%
+  summarise(
+    B0_mid = mean(B0),
+    DC_low = quantile(DC, 0.05),
+    DC_high = quantile(DC, 0.95),
+    .groups = "drop"
+  )
+
+
+ggplot(area_df,
+       aes(x = B0_mid,
+           ymin = DC_low,
+           ymax = DC_high,
+           fill = B1_class)) +
+  geom_ribbon(alpha = 0.85, color = NA) +
+
+  scale_fill_manual(
+    values = c(
+      "-750" = "#2E8B57",
+      "-700" = "#7FBF7B",
+      "-650" = "#D1BE91",
+      "-600" = "#A6764D"
+    ),
+    name = "Slope (B1)"
+  ) +
+
+  labs(
+    x = "Attainable yield (kg/ha)",
+    y = "Damage coefficient (%/p.p)"
+  ) +
+
+  theme_bw() +
+  theme(
+    legend.position = "right",
+    text = element_text(size = 14),
+    axis.title = element_text(size = 18, face = "bold")
+  )
+
+area_df %>% 
+  filter(!is.na(B1_class)) %>% 
+ggplot(aes(B0_mid, fill = B1_class)) +
+  geom_ribbon(aes(ymin = DC_low, ymax = DC_high), alpha = 0.7) +
+  geom_line(
+    aes(y = (DC_low + DC_high) / 2, color = B1_class),
+    size = 1
+  ) +
+  scale_fill_manual(values = c(
+    "-750" = "#2E8B57",
+    "-700" = "#7FBF7B",
+    "-650" = "#D1BE91",
+    "-600" = "#A6764D"
+  )) +
+  scale_color_manual(values = c(
+    "-750" = "#1B5E20",
+    "-700" = "#4CAF50",
+    "-650" = "#C2A14D",
+    "-600" = "#6F3F1F"
+  )) +
+  theme_bw()+
+   labs(
+    x = "Attainable yield (kg/ha)",
+    y = "Damage coefficient (%/p.p)"
+  ) +
+
+  theme_bw() +
+  theme(
+    legend.position = "right",
+    text = element_text(size = 14),
+    axis.title = element_text(size = 18, face = "bold")
+  )
+
+
+```
+
+```{r}
+
+library(sensitivity)
+
+# Usando amostragem simples para demonstrar
+b0_range <- seq(beta0_hat - 3*se_b0, beta0_hat + 3*se_b0, length=50)
+b1_range <- seq(beta1_hat - 3*se_b1, beta1_hat + 3*se_b1, length=50)
+
+E_b0 <- sapply(b0_range, elasticidade, S=20, b1=beta1_hat)
+E_b1 <- sapply(b1_range, elasticidade, S=20, b0=beta0_hat)
+
+par(mfrow=c(1,2))
+plot(b0_range, E_b0, type="l", col="darkblue", lwd=2,
+     main="Impacto do β0 na elasticidade", ylab="Elasticidade")
+plot(b1_range, E_b1, type="l", col="darkred", lwd=2,
+     main="Impacto do β1 na elasticidade", ylab="Elasticidade")
+
+
+```
+
+
+
+```{r}
+
+# ---- Funções ----
+elasticidade <- function(S, b0, b1) {
+  y <- b0 + b1 * S
+  b1 * (S / y)
+}
+
+# Títulos bonitos para legendas
+nice_names <- c(Baixa="Baixa tolerância", Media="Média tolerância", Alta="Alta tolerância")
+
+# ---- Parâmetros dos seus modelos ----
+cultivares <- list(
+  Baixa = list(beta0=11204.31, se_b0=222.53, beta1=-365.78, se_b1=49.03, sigma=1448),
+  Media = list(beta0= 9370.03, se_b0=186.31, beta1=-342.67, se_b1=62.86, sigma=1268),
+  Alta  = list(beta0=13773.58, se_b0=141.61, beta1=-357.02, se_b1=72.38, sigma=1252)
+)
+
+# Severidade de referência (ajuste se desejar)
+S_ref <- 9  # (%)
+
+```
+
+```{r}
+
+# Curvas no mesmo plot
+S_grid <- seq(0, 9, by=0.01)
+cols <- c(Baixa="#D55E00", Media="#0072B2", Alta="#009E73")
+
+plot(NULL, xlim=range(S_grid), ylim=c(-1, 0), xlab="Severidade (%)",
+     ylab="Elasticidade da perda", main="Elasticidade × Severidade (3 cultivares)")
+abline(h=0, lty=2, col="gray70")
+
+for (nm in names(cultivares)) {
+  m <- cultivares[[nm]]
+  E <- sapply(S_grid, elasticidade, b0=m$beta0, b1=m$beta1)
+  lines(S_grid, E, lwd=2.5, col=cols[[nm]])
+}
+
+legend("bottomleft", legend=nice_names[names(cultivares)], col=cols, lwd=2.5, bty="n")
+
+
+```
+
+```{r}
+
+set.seed(123)
+n_sim <- 5000
+
+E_sims <- lapply(cultivares, function(m) {
+  b0 <- rnorm(n_sim, mean=m$beta0, sd=m$se_b0)
+  b1 <- rnorm(n_sim, mean=m$beta1, sd=m$se_b1)
+  mapply(elasticidade, S=S_ref, b0=b0, b1=b1)
+})
+
+par(mfrow=c(1,3))
+i <- 1
+for (nm in names(E_sims)) {
+  hist(E_sims[[nm]], breaks=40, col=adjustcolor(cols[[nm]], 0.6),
+       main=paste0("Elasticidade (", nice_names[[nm]], ")"),
+       xlab=paste0("E(S=", S_ref, "%)"), border="white")
+  abline(v=median(E_sims[[nm]]), col="red", lwd=2)
+  i <- i + 1
+}
+par(mfrow=c(1,1))
+
+```
+
 
