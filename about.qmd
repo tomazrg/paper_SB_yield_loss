@@ -70,29 +70,6 @@ data222
 
 ```{r}
 
-summary(tt)
-confint(tt)
-
-library(broom)
-
-
-
-regression = data222  %>%
-  #filter(!year == "2025") %>% 
-  #filter(!trial %in% c("25-P2S1_VAR2","25-P2S2_PC2")) %>% 
-  dplyr::group_by(gen) %>% 
-  do(tidy(lm(.$kg_ha ~ .$SB+ factor(.$blk) + factor(.$trial))))
-unique(data22$year)
-
-performance::check_model(tt)
-
-unique(regression$trial)
-ggsave("fig/check_model.png")
-
-```
-
-```{r}
-
 library(lme4)
 
 tt <- lmer(
@@ -110,18 +87,6 @@ damage_coef <- data.frame(
   damage_coef = fixef(tt)["SB"] + re[, "SB"]
 )
 
-
-
-fix <- fixef(tt)
-re  <- ranef(tt)$gen
-
-dc_gen <- data.frame(
-  gen = rownames(re),
-  B0  = fix["(Intercept)"] + re[, "(Intercept)"],
-  B1  = fix["SB"]          + re[, "SB"]
-)
-
-dc_gen$DC <- (dc_gen$B1 / dc_gen$B0)*100
 
 
 ```
@@ -152,47 +117,6 @@ overall_regression = data22 |>
   labs(x = "SB index", y = "Yield (kg/ha) ")
 
 overall_regression
-```
-
-```{r}
-
-ma_c_reg = regression
-ma_c_reg = ma_c_reg |> 
-filter(term %in% c("(Intercept)",".$SB"))
- 
-ma_c_reg[ma_c_reg$term== "(Intercept)",c("parameters")] <- "Intercept"
-ma_c_reg[ma_c_reg$term== ".$SB",c("parameters")] <- "Slope"
-
-
-b1_c = ma_c_reg |> 
-  dplyr::filter(parameters == "Slope") |> 
-  #filter(estimate < 0) %>% 
-  dplyr::group_by(gen) |> 
-  summarise(
-    Slope = estimate
-  )
-
-b0_c = ma_c_reg |> 
-  filter(parameters == "Intercept") |>
-  group_by(gen) |> 
-  summarise(
-    Intercept = estimate
-  )
-
-parameters_c = cbind(b1_c,b0_c)
-parameters_c[,3] = NULL
-
-parameters_c = parameters_c %>% 
-  filter(Slope >=0)
-
-dc_c = parameters_c %>% 
-  group_by(gen) %>% 
-  summarise(
-    DC = (Slope/Intercept)*-1,
-    b1= Intercept/1000,
-    DC = DC*b1,
-    DC_perc = DC*100
-  )
 ```
 
 ```{r}
@@ -258,6 +182,7 @@ data_r1 = data222 %>%
   filter(gen %in% c_01$gen)
 
 
+data_r1$SB = data_r1$SB*100
 
 model_r1 <- lmer(
   kg_ha ~ SB +
@@ -268,6 +193,11 @@ model_r1 <- lmer(
 ```{r}
 summary(model_r1)
 confint(model_r1)
+
+
+```
+```{r}
+SE_r1 = 1467/sqrt(12)
 ```
 
 ## Group 2
@@ -1320,12 +1250,405 @@ freq_dc = simu_DC %>%
 
 ```{r}
 
-rainbow_dc|freq_dc
+freq_dc | rainbow_dc
 
 ```
 
 ```{r}
 ggsave("fig/DC.png", bg = "white", dpi = 600, height = 6, width = 10)
 
+```
+
+# Relative yield
+
+## Group 1
+
+```{r}
+set.seed(1)
+
+u_j <- rnorm(100, mean = 0, sd = 1467)
+b1 <- runif(100,min = 159.9782, max = 430.2115)
+b0 = runif(100,min =  6680.5477,max = 15566.8496)
+
+
+df_r1 <- expand.grid(sev = seq(0, 100, by = 1), rep = 1:100)
+df_r1$yield = b0 - b1*df_r1$sev - rep(u_j, each = 101)
+df_r1$relative <- df_r1$yield *100 / b0
+```
+```{r}
+
+summary(model_r1)
+confint(model_r3)
+
+```
+
+```{r, warning=FALSE, message=FALSE}
+regression_r1 = data_r1 |> 
+ ggplot(aes(SB, y = kg_ha)) +
+  geom_point(color = "NA")+
+   scale_y_continuous(breaks = c(4000,6000,8000,10000,12000,14000,16000), 
+                     limits = c(4000, 16000))+
+ scale_x_continuous(breaks = c(0,1,2,3,4,5,6,7,8,9),
+                    limits = c(0, 9))+
+  geom_abline(aes(intercept = 11142.94 ,slope = -292.80),
+              size = 2, fill = "#7FBF7B", color = "#7FBF7B")+
+  
+  geom_abline(aes(intercept = 6680.5477,slope = -430.2115) ,
+              size = 1, linetype = 2, fill = "#7FBF7B", color = "#7FBF7B")+
+  
+  geom_abline(aes(intercept = 15566.8496,slope = -159.9782),
+              size = 1, linetype = 2, fill = "#7FBF7B", color = "#7FBF7B")+
+ # annotate("text", x = 6, y = 14000, label = "CL111", color = "black", size = 5) +
+  #annotate("text", x = 6, y = 13500, label = "DC = 3.25", color = "black", size = 5) +
+  #annotate(geom="text", x=55, y=6000, label="DC = 0.2",
+   #           color="black", size = 4)+
+  theme_bw()+
+    #ggthemes::theme_few()+
+  theme(text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        title = element_text(face = "bold"),
+        axis.text.y = element_text(size = 12),
+        legend.position = "none")+
+  labs(x = "SB index", y = "Yield (kg/ha)")
+
+regression_r1
+```
+
+```{r}
+df_loss_r1 = df_r1 |>
+  filter(sev <=9) %>% 
+  mutate(l = 100*((b0- yield)/b0)) |> 
+  filter(!is.na(l))
+
+
+data33_r1 = df_loss_r1 |> 
+  group_by(as.factor(rep)) |> 
+  summarise(slope = lm(l~0+sev)$coefficients,
+            vi = as.numeric(vcov(lm(l~0+sev))))
+
+
+RYL_r1 = data33_r1  %>% 
+  ggplot()+
+  geom_abline(aes(intercept = 0, slope = slope), alpha = 0.9, color = "#7FBF7B")+
+  theme_bw()+
+  xlim(0,9)+
+  ylim(0,60)+
+  scale_x_continuous(expand = c(0, 0),
+                     limits = c(0,9),
+                     breaks = c(0,1,2,3,4,5,6,7,8,9)) +
+  scale_y_continuous(expand = c(0, 0),
+                     limits = c(0,100))+
+  #annotate("text", x = 1.80, y = 53, label = "CL111", color = "black", size = 5) +
+  #annotate("text", x = 2, y = 50, label = "DC = 3.25", color = "black", size = 5) +
+  labs(x = "SB index",
+       y = "Relative yield loss (%)",
+       color = "")+
+  theme(text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 12),
+        #axis.text.y = element_blank(),
+        title = element_text(face = "bold"))
+
+RYL_r1
+
+
+loss_r1 = df_loss_r1 |> 
+  filter(!sev == 0) %>% 
+  filter(l >0) %>% 
+  ggplot(aes(l))+
+  geom_histogram(color = "white", bins = 10, fill = "#7FBF7B")+
+  theme_bw()+
+  scale_x_continuous(expand = c(0, 0),
+                     limits = c(0,100),
+                     breaks = c(0,20, 40, 60, 80, 100))+
+  labs(x = "Relative yield loss (%)",
+       y = "Frequency")+
+  theme(text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 12),
+        title = element_text(face = "bold"))
+
+
+max(loss_r1$l)
+min(loss_r1$l)
+mean(loss_r1$l)
+median(loss_r1$l)
+
+
+```
+
+## Group 2
+
+
+
+```{r}
+set.seed(1)
+
+u_j <- rnorm(100, mean = 0, sd = 1679)
+b1 <- runif(100,min = 111.386, max = 300.0809)
+b0 = runif(100,min =  7734.8070,max = 11609.306)
+#b1 <- rnorm(100,mean = 252, sd = 66)
+#mean_uj = mean(u_j)
+
+
+
+df_r2 <- expand.grid(sev = seq(0, 100, by = 1), rep = 1:100)
+df_r2$yield = b0 - b1*df_r2$sev - rep(u_j, each = 101)
+df_r2$relative <- df_r2$yield *100 / b0
+```
+
+
+```{r}
+df_loss_r2 = df_r2 |>
+  filter(sev <=9) %>% 
+  mutate(l = 100*((b0- yield)/b0)) |> 
+  filter(!is.na(l))
+
+
+data33_r2 = df_loss_r2 |> 
+  group_by(as.factor(rep)) |> 
+  summarise(slope = lm(l~0+sev)$coefficients,
+            vi = as.numeric(vcov(lm(l~0+sev))))
+
+
+RYL_r2 = data33_r2  %>% 
+  ggplot()+
+  geom_abline(aes(intercept = 0, slope = slope), alpha = 0.9, color = "#D1BE91")+
+  theme_bw()+
+  xlim(0,9)+
+  ylim(0,60)+
+  scale_x_continuous(expand = c(0, 0),
+                     limits = c(0,9),
+                     breaks = c(0,1,2,3,4,5,6,7,8,9)) +
+  scale_y_continuous(expand = c(0, 0),
+                     limits = c(0,100))+
+  #annotate("text", x = 1.80, y = 53, label = "CLJ01", color = "black", size = 5) +
+  #annotate("text", x = 2, y = 50, label = "DC = 3.64", color = "black", size = 5) +
+  #scale_color_colorblind()+
+  labs(x = "SB index",
+       y = "",
+       color = "")+
+  theme(text = element_text(size = 12),
+        axis.text.y = element_blank(),
+        title = element_text(face = "bold"))
+
+RYL_r2
+
+
+loss_r2 = df_loss_r2 |> 
+  filter(!sev == 0) %>% 
+  filter(l >0) %>% 
+  ggplot(aes(l))+
+  geom_histogram(color = "white", bins = 10, fill = "#D1BE91")+
+  theme_bw()+
+scale_x_continuous(expand = c(0, 0),
+                     limits = c(0,100),
+                     breaks = c(0,20, 40, 60, 80, 100))+
+  labs(x = "Relative yield loss (%)",
+       y = "")+
+  theme(text = element_text(size = 12),
+        axis.text.y = element_blank(),
+        title = element_text(face = "bold"))
+
+
+df_loss2_r2 = df_loss_r2 |> 
+  filter(!sev == 0) %>% 
+  filter(l >0) 
+
+max(df_loss2_r2$l)
+min(df_loss2_r2$l)
+mean(df_loss2_r2$l)
+median(df_loss2_r2$l)
+
+```
+
+```{r}
+
+summary(model_r2)
+confint(model_r2)
+
+```
+
+```{r, warning=FALSE, message=FALSE}
+regression_r2 = data222 |> 
+ ggplot(aes(SB, y = kg_ha)) +
+  geom_point(color = "NA")+
+   scale_y_continuous(breaks = c(4000,6000,8000,10000,12000,14000,16000), 
+                     limits = c(4000, 16000))+
+ scale_x_continuous(breaks = c(0,1,2,3,4,5,6,7,8,9),
+                    limits = c(0, 9))+
+  geom_abline(aes(intercept = 9692.06, slope = -206.01),
+              size = 2, fill = "#D1BE91", color = "#D1BE91")+
+  geom_abline(aes(intercept = 7734.8070,slope = -300.0809) ,
+              size = 1, linetype = 2, fill = "#D1BE91", color = "#D1BE91")+
+  geom_abline(aes(intercept = 11609.306,slope = -111.386),
+              size = 1, linetype = 2, fill = "#D1BE91", color = "#D1BE91")+
+ # annotate("text", x = 6, y = 14000, label = "CLJ01", color = "black", size = 5) +
+  #annotate("text", x = 6, y = 13500, label = "DC = 3.64", color = "black", size = 5) +
+  #annotate(geom="text", x=55, y=6000, label="DC = 0.2",
+   #           color="black", size = 4)+
+  theme_bw()+
+    #ggthemes::theme_few()+
+  theme(text = element_text(size = 12),
+        axis.text.y = element_blank(),
+        title = element_text(face = "bold"),
+        legend.position = "none")+
+  labs(x = "SB index", y = " ")
+
+
+regression_r2
+
+```
+
+## Group 3
+
+
+
+```{r}
+set.seed(1)
+
+u_j <- rnorm(100, mean = 0, sd = 778.0)
+b1 <- runif(100,min = 567.3166, max = 796.8269)
+b0 = runif(100,min =  9344.7371,max = 15389.1507)
+#b1 <- rnorm(100,mean = 252, sd = 66)
+#mean_uj = mean(u_j)
+
+df_r3 <- expand.grid(sev = seq(0, 100, by = 1), rep = 1:100)
+df_r3$yield = b0 - b1*df_r3$sev - rep(u_j, each = 101)
+df_r3$relative <- df_r3$yield *100 / b0
+```
+
+```{r}
+df_loss_r3 = df_r3 |>
+  filter(sev <=9) %>% 
+  mutate(l = 100*((b0- yield)/b0)) |> 
+  filter(!is.na(l))
+
+
+data33_r3 = df_loss_r3 |> 
+  group_by(as.factor(rep)) |> 
+  summarise(slope = lm(l~0+sev)$coefficients,
+            vi = as.numeric(vcov(lm(l~0+sev))))
+
+
+RYL_r3 = data33_r3  %>% 
+  ggplot()+
+  geom_abline(aes(intercept = 0, slope = slope), alpha = 0.9, color = "#A6764D")+
+  theme_bw()+
+  xlim(0,9)+
+  ylim(0,60)+
+  scale_x_continuous(expand = c(0, 0),
+                     limits = c(0,9),
+                     breaks = c(0,1,2,3,4,5,6,7,8,9)) +
+  scale_y_continuous(expand = c(0, 0),
+                     limits = c(0,100))+
+  #annotate("text", x = 1.87, y = 53, label = "Hybrids", color = "black", size = 5) +
+  #annotate("text", x = 2, y = 50, label = "DC = 2.59", color = "black", size = 5) +
+  #scale_color_colorblind()+
+  labs(x = "SB index",
+       y = "",
+       color = "")+
+  theme(text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.text.y = element_blank(),
+        title = element_text(face = "bold"))
+
+RYL_r3
+
+
+loss_r3 = df_loss_r3 |> 
+  filter(!sev == 0) %>% 
+  filter(l >0) %>% 
+  ggplot(aes(l))+
+  geom_histogram(color = "white", bins = 10, fill = "#A6764D")+
+  theme_bw()+
+scale_x_continuous(expand = c(0, 0),
+                     limits = c(0,100),
+                     breaks = c(0,20, 40, 60, 80, 100))+
+  labs(x = "Relative yield loss (%)",
+       y = "")+
+  theme(text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.text.y = element_blank(),
+        title = element_text(face = "bold"))
+
+max(loss_r3$l)
+min(loss_r3$l)
+mean(loss_r3$l)
+median(loss_r3$l)
+```
+
+```{r}
+summary(model_r3)
+confint(model_r3)
+```
+
+```{r, warning=FALSE, message=FALSE}
+regression_r3 = data222 |> 
+ ggplot(aes(SB, y = kg_ha)) +
+  geom_point(color = "NA")+
+   scale_y_continuous(breaks = c(4000,6000,8000,10000,12000,14000,16000), 
+                     limits = c(4000, 16000))+
+ scale_x_continuous(breaks = c(0,1,2,3,4,5,6,7,8),
+                    limits = c(0, 8))+
+  geom_abline(aes(intercept = 12368.25, slope = -682.34),
+              size = 2, fill = "#A6764D", color = "#A6764D")+
+  geom_abline(aes(intercept = 9344.7371,slope = -796.8269) ,
+              size = 1, linetype = 2, fill = "#A6764D", color = "#A6764D")+
+  geom_abline(aes(intercept = 15389.1507,slope = -567.3166),
+              size = 1, linetype = 2, fill = "#A6764D", color = "#A6764D")+
+  #annotate("text", x = 6, y = 14000, label = "Hybrids", color = "black", size = 5) +
+  #annotate("text", x = 6, y = 13500, label = "DC = 2.59", color = "black", size = 5) +
+  #annotate(geom="text", x=55, y=6000, label="DC = 0.2",
+   #           color="black", size = 4)+
+  theme_bw()+
+    #ggthemes::theme_few()+
+  theme(text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        title = element_text(face = "bold"),
+        legend.position = "none",
+    axis.text.y = element_blank())+
+  labs(x = "SB index", y = " ")
+
+regression_r3
+```
+
+```{r}
+(regression_r1|regression_r2|regression_r3)/(RYL_r1|RYL_r2|RYL_r3)/(loss_r1|loss_r2|loss_r3)
+
+
+ggsave("fig/loss_all.png", dpi = 600, bg = "white", height = 6, width = 9)
+```
+
+```{r}
+SB_year = data222 %>% 
+  ggplot(aes(SB))+
+  geom_histogram(bins = 10, color = "white", fill = "#A6764D")+
+  facet_wrap(~year)+
+    theme_bw()+
+    #ggthemes::theme_few()+
+  theme(text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        title = element_text(face = "bold"),
+        strip.background = element_blank(),
+        strip.text = element_blank())+
+  labs(x = "SB index", y = "Frequency")
+
+
+yield_year = data222 %>% 
+  ggplot(aes(kg_ha))+
+  geom_histogram(bins = 10, color = "white", fill = "#2E8B57")+
+  facet_wrap(~year)+
+    theme_bw()+
+    #ggthemes::theme_few()+
+  theme(text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        title = element_text(face = "bold"),
+        strip.background = element_blank())+
+  labs(x = "Yield (kg/ha)", y = "Frequency")
+
+yield_year / SB_year
+
+ggsave("fig/SB_yield.png", dpi = 600, bg = "white", height = 6, width = 9)
 ```
 
