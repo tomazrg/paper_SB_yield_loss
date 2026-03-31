@@ -1639,6 +1639,8 @@ SB_year = data222 %>%
   geom_histogram(bins = 10, color = "white", fill = "#A6764D")+
   facet_wrap(~year)+
     theme_bw()+
+  scale_x_continuous(breaks = c(0,1,2,3,4,5,6,7,8,9),
+                    limits = c(0, 9))+
     #ggthemes::theme_few()+
   theme(text = element_text(size = 12),
         axis.title = element_text(size = 12, face = "bold"),
@@ -1657,11 +1659,60 @@ yield_year = data222 %>%
   theme(text = element_text(size = 12),
         axis.title = element_text(size = 12, face = "bold"),
         title = element_text(face = "bold"),
-        strip.background = element_blank())+
+        strip.background = element_blank(),
+        strip.text = element_text(size = 12, face = "bold"))+
   labs(x = "Yield (kg/ha)", y = "Frequency")
 
 yield_year / SB_year
 
 ggsave("fig/SB_yield.png", dpi = 600, bg = "white", height = 6, width = 9)
 ```
+
+```{r}
+f_r1 = data_r1
+f_r1$group = "Group 1"
+
+f_r2 = data_r2
+f_r2$group = "Group 2"
+
+f_r3 = data_r3
+f_r3$group = "Group 3"
+
+f_all = rbind(f_r1,f_r2,f_r3)
+
+SB_genotypes = f_all %>% 
+  ggplot(aes(SB))+
+  geom_histogram(bins = 10, color = "white", fill = "#A6764D")+
+  facet_wrap(~group, ncol = 3)+
+ scale_x_continuous(breaks = c(0,1,2,3,4,5,6,7,8,9),
+                    limits = c(0, 9))+
+    theme_bw()+
+    #ggthemes::theme_few()+
+  theme(text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        title = element_text(face = "bold"),
+        strip.background = element_blank(),
+        strip.text = element_blank())+
+  labs(x = "SB index", y = "Frequency")
+
+
+yield_genotypes = f_all %>% 
+  ggplot(aes(kg_ha))+
+  geom_histogram(bins = 10, color = "white", fill = "#2E8B57")+
+  facet_wrap(~group, ncol = 3)+
+    theme_bw()+
+    #ggthemes::theme_few()+
+  theme(text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        title = element_text(face = "bold"),
+        strip.background = element_blank(),
+        strip.text = element_text(size = 12, face  = "bold"))+
+  labs(x = "Yield (kg/ha)", y = "Frequency")
+
+yield_genotypes / SB_genotypes
+
+ggsave("fig/SB_yield_genotypes.png", dpi = 600, bg = "white", height = 6, width = 9)
+```
+
+
 
