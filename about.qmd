@@ -1099,124 +1099,7 @@ ggsave("fig/EDT2.png", bg = "white", dpi = 600, height = 6, width = 10)
 
 # Elasticidade
 
-```{r}
-
-# Parâmetros do modelo (exemplo)
-beta0 <- 11142.94
-beta1 <- -292
-
-# Função de elasticidade
-elasticidade <- function(S, b0, b1) {
-  yield <- b0 + b1 * S
-  E <- b1 * (S / yield)
-  return(E)
-}
-
-# Severidade de 1% a 80%
-S <- seq(0, 9, by = 0.01)
-E <- sapply(S, elasticidade, b0 = beta0, b1 = beta1)
-
-# Plot
-plot(S, E, type="l", lwd=2, col="blue",
-     xlab="Severidade (%)",
-     ylab="Elasticidade da perda",
-     main="Elasticidade da perda ao longo da severidade")
-abline(h=0, lty=2)
-
-
-```
-
-```{r}
-
-# Parâmetros de exemplo
-mod <- list(
-  GROUP1   = c(beta0=11142.94, beta1=-292),
-  GROUP2  = c(beta0=9692.06, beta1=-206.01),
-  GROUP3  = c(beta0=12368.25, beta1=-682.34)
-)
-
-S <- seq(1, 8, 1)
-
-plot(NULL, xlim=c(1,8), ylim=c(-1,0),
-     xlab="Severidade (%)", ylab="Elasticidade",
-     main="Comparação da elasticidade entre cultivares")
-
-cols <- c("darkgreen", "orange", "red")
-
-i <- 1
-for(cult in names(mod)) {
-  beta0 <- mod[[cult]][1]
-  beta1 <- mod[[cult]][2]
-  E <- sapply(S, elasticidade, b0=beta0, b1=beta1)
-  
-  lines(S, E, col=cols[i], lwd=2)
-  
-  i <- i + 1
-}
-
-legend("bottomleft", legend=names(mod), col=cols, lwd=2)
-
-```
-
-```{r}
-
-# Coefs estimados + erros padrão
-beta0_hat <- 9692.06 #11204.31
-beta1_hat <- -206
-se_b0 <- 200
-se_b1 <- 8
-
-# Quantas simulações
-n <- 50000
-
-# Simulação dos coeficientes
-b0_sim <- rnorm(n, beta0_hat, se_b0)
-b1_sim <- rnorm(n, beta1_hat, se_b1)
-
-# Severidade de interesse (ex.: 20%)
-S <- c(0,1,2,3,4,5,6,7,8,9)
-
-# Elasticidade simulada
-E_sim <- mapply(elasticidade, S=S, b0=b0_sim, b1=b1_sim)
-
-# Histograma
-hist(E_sim, breaks=40, col="skyblue",
-     main="Distribuição da elasticidade (Monte Carlo)",
-     xlab="Elasticidade da perda")
-
-abline(v=median(E_sim), col="red", lwd=2)
-
-
-E_sim = as.data.frame(E_sim)
-```
-```{r}
-library(dplyr)
-library(tidyr)
-
-# Severidades
-S <- 0:9
-
-# Dataframe base das simulações
-sim_df <- expand_grid(
-  sim = 1:n,
-  S   = S
-) %>%
-  mutate(
-    b0 = b0_sim[sim],
-    b1 = b1_sim[sim],
-    E_sim = elasticidade(S = S, b0 = b0, b1 = b1),
-    E_sim = E_sim*100
-  ) %>% 
-  filter(!E_sim <=-100)
-
-
-sim_df %>% 
-  ggplot(aes(S,E_sim))+
-  geom_jitter(color = "grey60")+
-  geom_smooth(se = F)+
-  theme_bw()
-```
-
+## Overall
 ```{r}
 
 library(dplyr)
@@ -1226,29 +1109,15 @@ set.seed(123)
 
 b0_sim = seq(4000, 16000,length.out = 400)
 
-b1_sim <- runif(400,min = 567.31, max = 796.82)
-b1_sim <- runif(400,min = 192.59, max = 376.04)
+#b1_sim <- runif(400,min = 567.31, max = 796.82)
+#b1_sim <- runif(400,min = 192.59, max = 376.04)
+
 b1_sim <- runif(400,min = 159.97, max = 796.82)
 
 
 n <- 50000
-b0_sim <- rnorm(n, 12368.25, 200)
-b1_sim <- rnorm(n, -682, 8)
 
 S_seq <- 0:9
-
-
-sim_df <- expand_grid(
-  sim = 1:n,
-  S   = S_seq
-) %>%
-  mutate(
-    b0 = b0_sim[sim],
-    b1 = b1_sim[sim],
-    Y  = b0 + b1 * S,
-    Y0 = b0
-  )
-
 
 
 sim_df <- expand_grid(
@@ -1261,62 +1130,13 @@ sim_df <- expand_grid(
     Y0 = b0
   )
 
-
-
-sim_df <- sim_df %>%
-  mutate(
-    YL_rel = (Y0 - Y) / Y0 * 100
-  )
-
+sim_df
 ```
 
-```{r}
-sim_df <- sim_df %>%
-  mutate(
-    Elasticity = b1 * (S / Y)
-  )
-
-threshold_E05 <- sim_df %>%
-  filter(Elasticity <= -0.8) %>%
-  group_by(sim) %>%
-  summarise(
-    S_E05 = min(S)
-  )
 
 
-sim_df <- sim_df %>%
-  mutate(
-    TI = Y / Y0)
-
-sim_df %>% 
-  ggplot(aes(S,TI))+
-  geom_point()
-```
-```{r}
-DC_df <- data.frame(
-  DC = -b1_sim / b0_sim
-)
-
-quantile(DC_df$DC, c(0.025, 0.5, 0.975))
-
-
-
-sim_df %>%
- group_by(S) %>%
-  summarise(
-    E_med = median(Elasticity),
-    E_lwr = quantile(Elasticity, 0.025),
-    E_upr = quantile(Elasticity, 0.975))
-```
 
 ```{r}
-tradeoff_df <- data.frame(
-  B0 = b0_sim,
-  DC = b1_sim / b0_sim,
-  B1 = b1_sim
-)
-
-cor(tradeoff_df$B0, tradeoff_df$DC)
 
 tradeoff_df <- sim_df %>% 
   mutate(
@@ -1325,7 +1145,7 @@ tradeoff_df <- sim_df %>%
   B1 = b1
   )
 
-tradeoff_df %>% 
+rainbow_dc =  tradeoff_df %>% 
   ggplot(aes(B0,DC, color = B1))+
   geom_jitter()+
   geom_smooth(se = F, color = NA)+
@@ -1337,215 +1157,175 @@ tradeoff_df %>%
                 "#A6764D",   # light green
                 "#6F3F1F"),  # dark green
     n.breaks = 6,             # number of steps (adjust for contrast)
-    name = "Slope",
-  guide = guide_coloursteps(
-    nrow = 1,           
-    byrow = TRUE,
-    title.position = "top",
-    override.aes = list(size = 6)
-  )
-  )+
+    name = "Slope")+
    labs(x = "Attainable yield (ton/ha)",
        y = "Damage coefficient (%/p.p)")+
   theme_bw()+
     theme(
-    legend.position = "top",
+    legend.position = "right",
     text = element_text(size = 14),
-    legend.justification = "center",
     legend.margin = margin(t = 0, r = 20, b = 0, l = 0),  # Aumenta a margem à direita da legenda
-    strip.text = element_text(size = 18,face = "bold"),
-    axis.title = element_text(size = 18, face = "bold"),
-    legend.key.width = unit(2, "cm")
+    strip.text = element_text(size = 14,face = "bold"),
+    axis.title = element_text(size = 14, face = "bold"),
+    legend.key.height = unit(1, "cm"),
+    legend.title = element_text(size = 14, vjust = 0.5)
   )+
   scale_x_continuous(breaks = seq(4000, 16000, by = 4000),
                      expand = c(0.02,0.02)) +
   scale_y_continuous(breaks = seq(0.0, 0.20, by = 0.05),
                      expand = c(0.02,0.02))
 
-
-max(tradeoff_df$DC)
+rainbow_dc
 ```
+
+
+## Group 1
+
 ```{r}
+
 library(dplyr)
-library(ggplot2)
-
-tradeoff_df2 <- tradeoff_df %>%
-  mutate(
-    B1_class = cut(
-      B1,
-      breaks = c(-800, -725, -675, -625, -575),
-      labels = c("-750", "-700", "-650", "-600"),
-      include.lowest = TRUE
-    )
-  )
-
-
-area_df <- tradeoff_df2 %>%
-  mutate(
-    B0_bin = cut(B0, breaks = 100)
-  ) %>%
-  group_by(B1_class, B0_bin) %>%
-  summarise(
-    B0_mid = mean(B0),
-    DC_low = quantile(DC, 0.05),
-    DC_high = quantile(DC, 0.95),
-    .groups = "drop"
-  )
-
-
-ggplot(area_df,
-       aes(x = B0_mid,
-           ymin = DC_low,
-           ymax = DC_high,
-           fill = B1_class)) +
-  geom_ribbon(alpha = 0.85, color = NA) +
-
-  scale_fill_manual(
-    values = c(
-      "-750" = "#2E8B57",
-      "-700" = "#7FBF7B",
-      "-650" = "#D1BE91",
-      "-600" = "#A6764D"
-    ),
-    name = "Slope (B1)"
-  ) +
-
-  labs(
-    x = "Attainable yield (kg/ha)",
-    y = "Damage coefficient (%/p.p)"
-  ) +
-
-  theme_bw() +
-  theme(
-    legend.position = "right",
-    text = element_text(size = 14),
-    axis.title = element_text(size = 18, face = "bold")
-  )
-
-area_df %>% 
-  filter(!is.na(B1_class)) %>% 
-ggplot(aes(B0_mid, fill = B1_class)) +
-  geom_ribbon(aes(ymin = DC_low, ymax = DC_high), alpha = 0.7) +
-  geom_line(
-    aes(y = (DC_low + DC_high) / 2, color = B1_class),
-    size = 1
-  ) +
-  scale_fill_manual(values = c(
-    "-750" = "#2E8B57",
-    "-700" = "#7FBF7B",
-    "-650" = "#D1BE91",
-    "-600" = "#A6764D"
-  )) +
-  scale_color_manual(values = c(
-    "-750" = "#1B5E20",
-    "-700" = "#4CAF50",
-    "-650" = "#C2A14D",
-    "-600" = "#6F3F1F"
-  )) +
-  theme_bw()+
-   labs(
-    x = "Attainable yield (kg/ha)",
-    y = "Damage coefficient (%/p.p)"
-  ) +
-
-  theme_bw() +
-  theme(
-    legend.position = "right",
-    text = element_text(size = 14),
-    axis.title = element_text(size = 18, face = "bold")
-  )
-
-
-```
-
-```{r}
-
-library(sensitivity)
-
-# Usando amostragem simples para demonstrar
-b0_range <- seq(beta0_hat - 3*se_b0, beta0_hat + 3*se_b0, length=50)
-b1_range <- seq(beta1_hat - 3*se_b1, beta1_hat + 3*se_b1, length=50)
-
-E_b0 <- sapply(b0_range, elasticidade, S=20, b1=beta1_hat)
-E_b1 <- sapply(b1_range, elasticidade, S=20, b0=beta0_hat)
-
-par(mfrow=c(1,2))
-plot(b0_range, E_b0, type="l", col="darkblue", lwd=2,
-     main="Impacto do β0 na elasticidade", ylab="Elasticidade")
-plot(b1_range, E_b1, type="l", col="darkred", lwd=2,
-     main="Impacto do β1 na elasticidade", ylab="Elasticidade")
-
-
-```
-
-
-
-```{r}
-
-# ---- Funções ----
-elasticidade <- function(S, b0, b1) {
-  y <- b0 + b1 * S
-  b1 * (S / y)
-}
-
-# Títulos bonitos para legendas
-nice_names <- c(Baixa="Baixa tolerância", Media="Média tolerância", Alta="Alta tolerância")
-
-# ---- Parâmetros dos seus modelos ----
-cultivares <- list(
-  Baixa = list(beta0=11204.31, se_b0=222.53, beta1=-365.78, se_b1=49.03, sigma=1448),
-  Media = list(beta0= 9370.03, se_b0=186.31, beta1=-342.67, se_b1=62.86, sigma=1268),
-  Alta  = list(beta0=13773.58, se_b0=141.61, beta1=-357.02, se_b1=72.38, sigma=1252)
-)
-
-# Severidade de referência (ajuste se desejar)
-S_ref <- 9  # (%)
-
-```
-
-```{r}
-
-# Curvas no mesmo plot
-S_grid <- seq(0, 9, by=0.01)
-cols <- c(Baixa="#D55E00", Media="#0072B2", Alta="#009E73")
-
-plot(NULL, xlim=range(S_grid), ylim=c(-1, 0), xlab="Severidade (%)",
-     ylab="Elasticidade da perda", main="Elasticidade × Severidade (3 cultivares)")
-abline(h=0, lty=2, col="gray70")
-
-for (nm in names(cultivares)) {
-  m <- cultivares[[nm]]
-  E <- sapply(S_grid, elasticidade, b0=m$beta0, b1=m$beta1)
-  lines(S_grid, E, lwd=2.5, col=cols[[nm]])
-}
-
-legend("bottomleft", legend=nice_names[names(cultivares)], col=cols, lwd=2.5, bty="n")
-
-
-```
-
-```{r}
+library(tidyr)
 
 set.seed(123)
-n_sim <- 5000
 
-E_sims <- lapply(cultivares, function(m) {
-  b0 <- rnorm(n_sim, mean=m$beta0, sd=m$se_b0)
-  b1 <- rnorm(n_sim, mean=m$beta1, sd=m$se_b1)
-  mapply(elasticidade, S=S_ref, b0=b0, b1=b1)
-})
+b0_sim = seq(4000, 16000,length.out = 400)
 
-par(mfrow=c(1,3))
-i <- 1
-for (nm in names(E_sims)) {
-  hist(E_sims[[nm]], breaks=40, col=adjustcolor(cols[[nm]], 0.6),
-       main=paste0("Elasticidade (", nice_names[[nm]], ")"),
-       xlab=paste0("E(S=", S_ref, "%)"), border="white")
-  abline(v=median(E_sims[[nm]]), col="red", lwd=2)
-  i <- i + 1
-}
-par(mfrow=c(1,1))
+#b1_sim <- runif(400,min = 567.31, max = 796.82)
+#b1_sim <- runif(400,min = 192.59, max = 376.04)
+
+b1_sim <- runif(400,min = 159.97, max = 430.21)
+
+n <- 50000
+
+S_seq <- 0:9
+
+
+sim_df_g1 <- expand_grid(
+    S = S_seq,
+    b0 = b0_sim,
+    b1 = b1_sim
+) %>%
+  mutate(
+    Y  = b0 + b1 * S,
+    Y0 = b0
+  )
+
+sim_df_g1$group = "Group 1"
+```
+
+## Group 2
+
+```{r}
+
+library(dplyr)
+library(tidyr)
+
+set.seed(123)
+
+b0_sim = seq(4000, 16000,length.out = 400)
+
+#b1_sim <- runif(400,min = 567.31, max = 796.82)
+#b1_sim <- runif(400,min = 192.59, max = 376.04)
+
+b1_sim <- runif(400,min = 192.59, max = 376.04)
+
+
+n <- 50000
+
+S_seq <- 0:9
+
+
+sim_df_g2 <- expand_grid(
+    S = S_seq,
+    b0 = b0_sim,
+    b1 = b1_sim
+) %>%
+  mutate(
+    Y  = b0 + b1 * S,
+    Y0 = b0
+  )
+
+sim_df_g2$group = "Group 2"
+```
+
+## Group 3
+
+```{r}
+
+library(dplyr)
+library(tidyr)
+
+set.seed(123)
+
+b0_sim = seq(4000, 16000,length.out = 400)
+
+#b1_sim <- runif(400,min = 567.31, max = 796.82)
+#b1_sim <- runif(400,min = 192.59, max = 376.04)
+
+b1_sim <- runif(400,min = 567.31, max = 796.82)
+
+
+n <- 50000
+
+S_seq <- 0:9
+
+
+sim_df_g3 <- expand_grid(
+    S = S_seq,
+    b0 = b0_sim,
+    b1 = b1_sim
+) %>%
+  mutate(
+    Y  = b0 + b1 * S,
+    Y0 = b0
+  )
+
+sim_df_g3$group = "Group 3"
+```
+
+```{r}
+sim_df_all = rbind(sim_df_g1,sim_df_g2,sim_df_g3)
+```
+```{r}
+
+sim_df_all = sim_df_all %>% 
+   group_by(group) %>% 
+   mutate(pressure = case_when(b1 > median(b1) ~ "High pressure",
+                           b1 <= median(b1) ~"Low pressure"))
+
+simu_DC <- sim_df_all %>%
+  group_by(group,pressure) %>%
+  mutate(
+    B0 = b0,
+  DC = b1 / b0,
+  B1 = b1)
+```
+
+```{r}
+
+freq_dc = simu_DC %>% 
+  ggplot(aes(DC))+
+  geom_histogram(color = "white", bins = 15,fill = "black")+
+  facet_wrap(~group, ncol = 1)+
+   labs(x = "Damage coefficient (%/p.p)",
+       y = "Frequency")+
+  theme_bw()+
+    theme(
+    text = element_text(size = 14),
+    legend.margin = margin(t = 0, r = 20, b = 0, l = 0),  # Aumenta a margem à direita da legenda
+    strip.text = element_text(size = 14,face = "bold"),
+    axis.title = element_text(size = 14, face = "bold"),
+    strip.background = element_blank())
+```
+
+```{r}
+
+rainbow_dc|freq_dc
 
 ```
 
+```{r}
+ggsave("fig/DC.png", bg = "white", dpi = 600, height = 6, width = 10)
+
+```
 
