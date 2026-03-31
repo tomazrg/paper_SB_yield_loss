@@ -1242,6 +1242,7 @@ simu_DC <- sim_df_all %>%
     B0 = b0,
   DC = b1 / b0,
   B1 = b1)
+
 ```
 
 ```{r}
