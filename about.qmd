@@ -67,7 +67,7 @@ data222 = rbind(camila,data222)
 data222
 
 ```
-
+# Overall model
 ```{r}
 
 library(lme4)
@@ -77,8 +77,14 @@ tt <- lmer(
     (1 + SB | gen) +
     (1|trial/blk), data = data222)
 
+```
 
+```{r}
+summary(tt)
+confint(tt)
+```
 
+```{r}
 re <- ranef(tt)$gen
 
 damage_coef <- data.frame(
@@ -87,38 +93,10 @@ damage_coef <- data.frame(
   damage_coef = fixef(tt)["SB"] + re[, "SB"]
 )
 
-
-
+re
 ```
 
-```{r}
-
-overall_regression = data22 |> 
- ggplot(aes(SB, y = yld)) +
-  geom_point(color = "NA")+
-  scale_y_continuous(breaks = c(5000,6000,7000,8000,9000,
-                      10000,11000,12000,13000,14000), 
-                     limits = c(5000, 14000))+
- scale_x_continuous(breaks = c(0,10,20,30,40,50,60,70,80,90,100),
-                    limits = c(0, 100))+
-  geom_abline(aes(intercept = 8238.7285, slope = -371.4572),
-              size = 1, fill = "black", color = "black", linetype = 2)+
-  geom_abline(aes(intercept = 10281.71,slope = -326.32) ,
-              size = 2)+
-  geom_abline(aes(intercept = 12322.5967,slope = -281.3444), size = 1, linetype = 2)+
-  #annotate(geom="text", x=55, y=6000, label="DC = 0.2",
-   #           color="black", size = 4)+
-  theme_bw()+
-    #ggthemes::theme_few()+
-  theme(text = element_text(size = 12),
-        axis.title = element_text(size = 14, face = "bold"),
-        title = element_text(face = "bold"),
-        legend.position = "none")+
-  labs(x = "SB index", y = "Yield (kg/ha) ")
-
-overall_regression
-```
-
+# Clustering
 ```{r}
 set.seed(123)
 
@@ -138,23 +116,36 @@ dados_preparados <- cbind(dados_dummy, DC = damage_coef2$damage_coef)
 set.seed(123)
 resultado_kmeans <- kmeans(dados_preparados, centers = 3)
 
+```
+
+
+```{r}
 library(factoextra)
 
-p = fviz_cluster(resultado_kmeans, data = dados_preparados, label = NULL,geom = "point",pointsize = 3, shape = 20)
+p = fviz_cluster(resultado_kmeans, data = dados_preparados,
+        label = NULL,geom = "point",pointsize = 3, shape = 20)
+
 p2 = p +
   scale_color_manual(values = c('#9ccb86','#cf597e','steelblue'))+
   scale_fill_manual(values = c('#9ccb86','#cf597e','steelblue'))+
-  theme(
-    axis.title = element_text(size = 14, face = "bold"),  
-    axis.text = element_text(size = 12)) + 
-  labs(
-    title = "",  
-    x = "PC1",  
-    y = "PC2")+
-  theme(legend.position = "none")
+    theme(
+    legend.position = "none",
+    text = element_text(size = 18),
+    legend.justification = "center",
+    legend.margin = margin(t = 0, r = 20, b = 0, l = 0),  # Aumenta a margem à direita da legenda
+    strip.text = element_text(size = 18,face = "bold"),
+    axis.title = element_text(size = 18, face = "bold")
+  )+
+  theme_bw()+
+  labs(x = "PC1",
+       y = "PC2",
+       title = "")
 p2
 
+ggsave("fig/PC_groups.png", dpi = 600, bg = "white", height = 5.5, width = 9)
 ```
+
+
 # Regression
 
 ```{r}
@@ -176,6 +167,28 @@ c_03 = damage_coef2 %>%
 
 ```
 
+```{r}
+mean(data222$SB)
+sd(data222$SB)
+```
+
+```{r}
+mean(data222$kg_ha)
+sd(data222$kg_ha)
+```
+
+
+```{r}
+data222 %>% 
+  group_by(year) %>% 
+  summarise(
+    SB_mean = mean(SB),
+    SB_sd = sd(SB),
+    YIELD_mean = mean(kg_ha),
+    YIELD_sd = sd(kg_ha)
+  )
+```
+
 ## Group 1
 ```{r}
 data_r1 = data222 %>% 
@@ -188,10 +201,18 @@ model_r1 <- lmer(
   kg_ha ~ SB +
     (1 + SB) +
     (1|year/trial), data = data_r1)
+
+cor(data_r3$kg_ha, data_r3$SB)
 ```
 
 ```{r}
+
 mean(data_r1$SB)
+sd(data_r1$SB)
+
+mean(data_r1$kg_ha)
+sd(data_r1$kg_ha)
+
 ```
 
 
@@ -216,6 +237,10 @@ model_r2 <- lmer(
 
 ```{r}
 mean(data_r2$SB)
+sd(data_r2$SB)
+
+mean(data_r2$kg_ha)
+sd(data_r2$kg_ha)
 ```
 
 ```{r}
@@ -239,6 +264,11 @@ model_r3 <- lmer(
 
 ```{r}
 mean(data_r3$SB)
+sd(data_r3$SB)
+
+
+mean(data_r3$kg_ha)
+sd(data_r3$kg_ha)
 ```
 
 
@@ -1101,7 +1131,7 @@ rainbow_dc =  tradeoff_df %>%
                 "#6F3F1F"),  # dark green
     n.breaks = 6,             # number of steps (adjust for contrast)
     name = "Slope")+
-   labs(x = "Attainable yield (ton/ha)",
+   labs(x = "Attainable yield (kg/ha)",
        y = "Damage coefficient (%/p.p)")+
   theme_bw()+
     theme(
