@@ -1146,9 +1146,36 @@ rainbow_dc =  tradeoff_df %>%
   scale_x_continuous(breaks = seq(4000, 16000, by = 4000),
                      expand = c(0.02,0.02)) +
   scale_y_continuous(breaks = seq(0.0, 0.20, by = 0.05),
-                     expand = c(0.02,0.02))
+                     expand = c(0.0,0.02))
 
 rainbow_dc
+```
+
+
+```{r}
+
+group_pts <- data.frame(
+  group = c("G1", "G2", "G3"),
+  B0 = c(11142.9, 9692.0, 12368.3),  
+  B1 = c(-292.8, -206.0, -682.3)     
+)
+
+group_pts$DC <- - group_pts$B1 / group_pts$B0
+
+
+rainbow_dc2 = rainbow_dc +
+ geom_point(
+  data = group_pts,
+  aes(B0, DC, shape = group),
+  fill  = "orange",
+  color = "black",
+  size  = 4,
+  stroke = 1.2
+)+
+guides(
+  shape = guide_legend(title = NULL)
+)
+
 ```
 
 
@@ -1280,6 +1307,7 @@ simu_DC <- sim_df_all %>%
 freq_dc = simu_DC %>% 
   ggplot(aes(DC))+
   geom_histogram(color = "white", bins = 15,fill = "black")+
+  geom_vline(aes(xintercept = median(DC)), color = "orange", linetype = "dashed", size = 1) +
   facet_wrap(~group, ncol = 1)+
    labs(x = "Damage coefficient (%/p.p)",
        y = "Frequency")+
@@ -1294,7 +1322,7 @@ freq_dc = simu_DC %>%
 
 ```{r}
 
-freq_dc | rainbow_dc
+freq_dc | rainbow_dc2
 
 ```
 
@@ -1318,7 +1346,14 @@ b0 = runif(100,min =  6680.5477,max = 15566.8496)
 df_r1 <- expand.grid(sev = seq(0, 100, by = 1), rep = 1:100)
 df_r1$yield = b0 - b1*df_r1$sev - rep(u_j, each = 101)
 df_r1$relative <- df_r1$yield *100 / b0
+
+par_r1 = as.data.frame(b0)
+par_r1$b1 = b1
+par_r1$u_j = u_j
+par_r1$group = "Group 1"
 ```
+
+
 ```{r}
 
 summary(model_r1)
@@ -1401,6 +1436,7 @@ loss_r1 = df_loss_r1 |>
   filter(l >0) %>% 
   ggplot(aes(l))+
   geom_histogram(color = "white", bins = 10, fill = "#7FBF7B")+
+  geom_vline(aes(xintercept = median(l)), color = "black", linetype = "dashed", size = 1) +
   theme_bw()+
   scale_x_continuous(expand = c(0, 0),
                      limits = c(0,100),
@@ -1412,18 +1448,21 @@ loss_r1 = df_loss_r1 |>
         axis.text.y = element_text(size = 12),
         title = element_text(face = "bold"))
 
+```
+```{r}
 
-max(loss_r1$l)
-min(loss_r1$l)
-mean(loss_r1$l)
-median(loss_r1$l)
+df_loss_r1 = df_loss_r1 |> 
+  filter(!sev == 0) %>% 
+  filter(l >0)
 
-
+max(df_loss_r1$l)
+min(df_loss_r1$l)
+mean(df_loss_r1$l)
+median(df_loss_r1$l)
 ```
 
+
 ## Group 2
-
-
 
 ```{r}
 set.seed(1)
@@ -1439,6 +1478,12 @@ b0 = runif(100,min =  7734.8070,max = 11609.306)
 df_r2 <- expand.grid(sev = seq(0, 100, by = 1), rep = 1:100)
 df_r2$yield = b0 - b1*df_r2$sev - rep(u_j, each = 101)
 df_r2$relative <- df_r2$yield *100 / b0
+
+
+par_r2 = as.data.frame(b0)
+par_r2$b1 = b1
+par_r2$u_j = u_j
+par_r2$group = "Group 2"
 ```
 
 
@@ -1484,6 +1529,7 @@ loss_r2 = df_loss_r2 |>
   filter(l >0) %>% 
   ggplot(aes(l))+
   geom_histogram(color = "white", bins = 10, fill = "#D1BE91")+
+  geom_vline(aes(xintercept = median(l)), color = "black", linetype = "dashed", size = 1) +
   theme_bw()+
 scale_x_continuous(expand = c(0, 0),
                      limits = c(0,100),
@@ -1495,6 +1541,9 @@ scale_x_continuous(expand = c(0, 0),
         title = element_text(face = "bold"))
 
 
+```
+
+```{r}
 df_loss2_r2 = df_loss_r2 |> 
   filter(!sev == 0) %>% 
   filter(l >0) 
@@ -1503,7 +1552,6 @@ max(df_loss2_r2$l)
 min(df_loss2_r2$l)
 mean(df_loss2_r2$l)
 median(df_loss2_r2$l)
-
 ```
 
 ```{r}
@@ -1560,6 +1608,11 @@ b0 = runif(100,min =  9344.7371,max = 15389.1507)
 df_r3 <- expand.grid(sev = seq(0, 100, by = 1), rep = 1:100)
 df_r3$yield = b0 - b1*df_r3$sev - rep(u_j, each = 101)
 df_r3$relative <- df_r3$yield *100 / b0
+
+par_r3 = as.data.frame(b0)
+par_r3$b1 = b1
+par_r3$u_j = u_j
+par_r3$group = "Group 3"
 ```
 
 ```{r}
@@ -1605,6 +1658,7 @@ loss_r3 = df_loss_r3 |>
   filter(l >0) %>% 
   ggplot(aes(l))+
   geom_histogram(color = "white", bins = 10, fill = "#A6764D")+
+  geom_vline(aes(xintercept = median(l)), color = "black", linetype = "dashed", size = 1) +
   theme_bw()+
 scale_x_continuous(expand = c(0, 0),
                      limits = c(0,100),
@@ -1616,10 +1670,19 @@ scale_x_continuous(expand = c(0, 0),
         axis.text.y = element_blank(),
         title = element_text(face = "bold"))
 
-max(loss_r3$l)
-min(loss_r3$l)
-mean(loss_r3$l)
-median(loss_r3$l)
+
+```
+
+```{r}
+
+df_loss2_r3 = df_loss_r3 |> 
+  filter(!sev == 0) %>% 
+  filter(l >0) 
+
+max(df_loss2_r3$l)
+min(df_loss2_r3$l)
+mean(df_loss2_r3$l)
+median(df_loss2_r3$l)
 ```
 
 ```{r}
@@ -1662,6 +1725,94 @@ regression_r3
 
 
 ggsave("fig/loss_all.png", dpi = 600, bg = "white", height = 6, width = 9)
+```
+```{r}
+par_all = rbind(par_r1,par_r2,par_r3)
+
+group_cols <- c(
+  "Group 3"  = "#A6764D",
+  "Group 2" = "#D1BE91",
+  "Group 1" = "#7FBF7B")
+
+b0_all = par_all %>% 
+  ggplot(aes(b0, fill = group))+
+  geom_histogram(colour = "white", bins = 12)+
+  facet_wrap(~group)+
+  scale_fill_manual(values = group_cols, name = "group") +
+  theme_bw()+
+  scale_x_continuous(expand = c(0.1, 0.1),
+                     limits = c(6000,14000),
+                     breaks = c(6000,8000, 10000, 12000, 14000))+
+  labs(x = "Attainble yield (kg/ha)",
+       y = "Frequency")+
+  theme(text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        title = element_text(face = "bold"),
+        strip.background = element_blank(),
+        strip.text = element_text(size = 12, face = "bold"),
+        legend.position = "none")
+
+
+b1_all = par_all %>% 
+  ggplot(aes(b1, fill = group))+
+  geom_histogram(colour = "white", bins = 12)+
+  facet_wrap(~group)+
+  scale_fill_manual(values = group_cols, name = "group") +
+  theme_bw()+
+  scale_x_continuous(expand = c(0.1, 0.1),
+                     limits = c(100,800),
+                     breaks = c(0,100,200, 300, 400, 500, 600,700,800))+
+  labs(x = "Slope (kg/p.p)",
+       y = "Frequency")+
+  theme(text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        title = element_text(face = "bold"),
+        strip.background = element_blank(),
+        strip.text = element_blank(),
+        legend.position = "none")
+
+b0_all / b1_all
+
+ggsave("fig/parameters.png", dpi = 600, bg = "white", height = 6, width = 9)
+```
+```{r}
+
+
+uj_all = par_all %>% 
+  ggplot(aes(u_j, fill = group))+
+  geom_histogram(colour = "white", bins = 12)+
+  facet_wrap(~group)+
+  scale_fill_manual(values = group_cols, name = "group") +
+  theme_bw()+
+  scale_x_continuous(expand = c(0.1, 0.1),
+                     limits = c(-3000,3000),
+                     breaks = c(-3000,-2000,-1000, 0, 1000, 2000,3000))+
+  labs(x = "Residue (kg/ha)",
+       y = "Frequency")+
+  theme(text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        title = element_text(face = "bold"),
+        strip.background = element_blank(),
+        strip.text = element_text(size = 12, face = "bold"),
+        legend.position = "none")
+
+uj_all
+```
+```{r}
+data33_r2 %>% 
+  ggplot(aes(vi))+
+  geom_histogram(colour = "white", fill = "black", bins = 12)+
+  theme_bw()+
+   labs(x = "Slope (kg/p.p)",
+       y = "Frequency")+
+  theme(text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        title = element_text(face = "bold"),
+        strip.background = element_blank(),
+        strip.text = element_text(size = 12, face = "bold"),
+        legend.position = "none")
+
+  
 ```
 
 ```{r}
