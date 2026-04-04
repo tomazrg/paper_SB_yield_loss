@@ -201,10 +201,9 @@ data_r1 = data222 %>%
 
 model_r1 <- lmer(
   kg_ha ~ SB +
-    (1 + SB) +
     (1|year/trial), data = data_r1)
 
-cor(data_r3$kg_ha, data_r3$SB)
+cor(data_r1$kg_ha, data_r1$SB)
 ```
 
 ```{r}
@@ -233,8 +232,9 @@ data_r2 = data222 %>%
 
 model_r2 <- lmer(
   kg_ha ~ SB +
-    (1 + SB) +
     (1|year/trial), data = data_r2)
+
+cor(data_r2$kg_ha, data_r2$SB)
 ```
 
 ```{r}
@@ -259,8 +259,9 @@ data_r3 = data222 %>%
 
 model_r3 <- lmer(
   kg_ha ~ SB +
-    (1 + SB) +
     (1|year/trial), data = data_r3)
+
+cor(data_r3$kg_ha, data_r3$SB)
 
 ```
 
@@ -363,6 +364,17 @@ gc()
 ```{r}
 ylmer_simu_all = rbind(ylmer_simu_g1,ylmer_simu_g2,ylmer_simu_g3)
 ylmer_simu_all
+```
+```{r}
+ylmer_simu_all %>% 
+  filter(loss >0.0) %>% 
+  group_by(group) %>%
+  summarise(
+    min = min(loss),
+    max = max(loss),
+    mean = mean(loss),
+    quantile = quantile(loss, 0.95)
+  )
 ```
 
 ```{r}
@@ -559,22 +571,22 @@ library(cowplot)
 base_plot <- (interval2 | heat_loss) +
   plot_layout(guides = "collect")
 
-
-base_grob <- patchworkGrob(base_plot)
-
-
-
-final_plot <- ggdraw(base_grob) +
-  draw_plot_label(
-    label = c("(a)", "(b)"),
-    x     = c(0, 0, 0.46), 
-    y     = c(1, 0.5, 1),   
-    size  = 18,                    
-    fontface = "bold"
-  )
+base_plot
+#base_grob <- patchworkGrob(base_plot)
 
 
-final_plot
+
+#final_plot <- ggdraw(base_grob) +
+ # draw_plot_label(
+  #  label = c("(a)", "(b)"),
+   # x     = c(0, 0, 0.46), 
+  #  y     = c(1, 0.5, 1),   
+  #  size  = 18,                    
+   # fontface = "bold"
+  #)
+
+
+#final_plot
 
 
 ggsave("fig/ec_losses.png", bg = "white", dpi = 600, height = 6, width = 10)
@@ -583,360 +595,6 @@ gc()
 ```
 
 # Economic damage threshold
-
-## Group 1
-
-
-```{r}
-# Function to Simulate EDC
-set.seed(123)
-
-simula_LDE <- function(n, media_rp, sd_rp, eficacia, cd_base, custo_range, preco_range) {
-  simulacoes <- tibble(
-    rendimento_potencial = rnorm(n, media_rp, sd_rp),
-    custo_controle = runif(n, custo_range[1], custo_range[2]),
-    preco_produto = runif(n, preco_range[1], preco_range[2]),
-    eficacia = eficacia
-  ) %>% 
-    mutate(
-      cd_base = cd_base,
-      coeficiente_dano = cd_base * rendimento_potencial,
-      LDE = (custo_controle / (preco_produto * coeficiente_dano)) * eficacia
-    )
-  return(simulacoes)
-}
-
-
-n = 50000 # number of simulations
-media_rp = 11.14 # in ton/ha
-sd_rp = 0.70  # SD of attainable yield
-eficacia = rnorm(50000, 0.54, 0.1) #  in proportion
-cd_base = 0.02
-custo_range = c(40, 160) # cust of control (US$)
-preco_range = c(100, 600) # soybean price (US$)
-
-# run the simulation
-simula_g1 <- simula_LDE(n, media_rp, sd_rp, eficacia, cd_base, custo_range, preco_range)
-```
-
-```{r}
-edt_g1 = simula_g1 |> 
-  ggplot(aes(rendimento_potencial, eficacia, 
-             color = LDE, size = coeficiente_dano))+
-  geom_point()+
-  #scale_color_viridis_c(labels = scales::number_format(accuracy = 0.1))+
-    scale_colour_stepsn(
-    colours = c("#2E8B57",   # dark brown
-                "#7FBF7B",   # medium brown
-                "#D1BE91",   # beige transition
-                "#A6764D",   # light green
-                "#6F3F1F"),  # dark green
-    n.breaks = 6,             # number of steps (adjust for contrast)
-    breaks = seq(0, 8, 1),
-    name = "EDT",
-    guide = guide_legend(
-    override.aes = list(size = 6)   
-  )
-) +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.25)) +
-   labs(color = "EDT",
-     x = "Attainable yield (ton/ha)",
-       y = "Fungicide efficacy (%)",
-     size = "DC")+
-  theme_bw()+
-    theme(
-    legend.position = "top",
-    text = element_text(size = 14),
-    legend.justification = "center",
-    legend.margin = margin(t = 0, r = 20, b = 0, l = 0),  # Aumenta a margem à direita da legenda
-    strip.text = element_text(size = 18,face = "bold"),
-    axis.title = element_text(size = 18, face = "bold")
-  )
-
-edt_g1
-```
-
-
-```{r}
-min(simula_g1$LDE)
-mean(simula_g1$LDE)
-```
-
-```{r}
-library(ggdist) 
-edt_density_g1 <- ggplot(simula_g1, aes(x = LDE)) +
-  stat_halfeye(fill = "#7FBF7B", alpha = 0.7) +
-  geom_vline(aes(xintercept = median(LDE)), color = "#6F3F1F", linetype = "dashed", size = 1) +
- # annotate("text", x = 0.6, y = 0.90, label = "Median = 1.54%", color = "black", size = 4.5) +
-  #annotate("text", x = 0.6, y = 0.80, label = "95% CI = 0.89%, 2.53%", color = "black", size = 4.5) +
-  labs(
-    x = "Economic Damage Threshold (EDT)",
-    y = "Density"
-  ) +
-  theme_bw()+
-    theme(
-    legend.position = "right",
-    text = element_text(size = 14),
-    legend.justification = "center",
-    legend.margin = margin(t = 0, r = 20, b = 0, l = 0),  # Aumenta a margem à direita da legenda
-    strip.text = element_text(size = 18,face = "bold"),
-    axis.title = element_text(size = 18, face = "bold")
-  )
-
-edt_density_g1
-```
-## Group 2
-
-```{r}
-# Function to Simulate EDC
-set.seed(123)
-
-simula_LDE <- function(n, media_rp, sd_rp, eficacia, cd_base, custo_range, preco_range) {
-  simulacoes <- tibble(
-    rendimento_potencial = rnorm(n, media_rp, sd_rp),
-    custo_controle = runif(n, custo_range[1], custo_range[2]),
-    preco_produto = runif(n, preco_range[1], preco_range[2]),
-    eficacia = eficacia
-  ) %>% 
-    mutate(
-      cd_base = cd_base,
-      coeficiente_dano = cd_base * rendimento_potencial,
-      LDE = (custo_controle / (preco_produto * coeficiente_dano)) * eficacia
-    )
-  return(simulacoes)
-}
-
-
-n = 50000 # number of simulations
-media_rp = 9.9 # in ton/ha
-sd_rp = 0.70  # SD of attainable yield
-eficacia = rnorm(50000, 0.54, 0.1) #  in proportion
-cd_base = 0.02
-custo_range = c(40, 160) # cust of control (US$)
-preco_range = c(100, 600) # soybean price (US$)
-
-# run the simulation
-simula_g2 <- simula_LDE(n, media_rp, sd_rp, eficacia, cd_base, custo_range, preco_range)
-```
-
-```{r}
-edt_g2 = simula_g2 |> 
-  ggplot(aes(rendimento_potencial, eficacia, 
-             color = LDE, size = coeficiente_dano))+
-  geom_point()+
-  #scale_color_viridis_c(labels = scales::number_format(accuracy = 0.1))+
-    scale_colour_stepsn(
-    colours = c("#2E8B57",   # dark brown
-                "#7FBF7B",   # medium brown
-                "#D1BE91",   # beige transition
-                "#A6764D",   # light green
-                "#6F3F1F"),  # dark green
-    n.breaks = 6,             # number of steps (adjust for contrast)
-    breaks = seq(0, 8, 1),
-    name = "EDT",
-    guide = guide_legend(
-    override.aes = list(size = 6)   
-  )
-) +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.25)) +
-   labs(color = "EDT",
-     x = "Attainable yield (ton/ha)",
-       y = "Fungicide efficacy (%)",
-     size = "DC")+
-  theme_bw()+
-    theme(
-    legend.position = "top",
-    text = element_text(size = 14),
-    legend.justification = "center",
-    legend.margin = margin(t = 0, r = 20, b = 0, l = 0),  # Aumenta a margem à direita da legenda
-    strip.text = element_text(size = 18,face = "bold"),
-    axis.title = element_text(size = 18, face = "bold")
-  )
-
-edt_g2
-```
-
-
-```{r}
-min(simula_g2$LDE)
-mean(simula_g2$LDE)
-```
-
-```{r}
-library(ggdist) 
-edt_density_g2 <- ggplot(simula_g2, aes(x = LDE)) +
-  stat_halfeye(fill = "#7FBF7B", alpha = 0.7) +
-  geom_vline(aes(xintercept = median(LDE)), color = "#6F3F1F", linetype = "dashed", size = 1) +
- # annotate("text", x = 0.6, y = 0.90, label = "Median = 1.54%", color = "black", size = 4.5) +
-  #annotate("text", x = 0.6, y = 0.80, label = "95% CI = 0.89%, 2.53%", color = "black", size = 4.5) +
-  labs(
-    x = "Economic Damage Threshold (EDT)",
-    y = "Density"
-  ) +
-  theme_bw()+
-    theme(
-    legend.position = "right",
-    text = element_text(size = 14),
-    legend.justification = "center",
-    legend.margin = margin(t = 0, r = 20, b = 0, l = 0),  # Aumenta a margem à direita da legenda
-    strip.text = element_text(size = 18,face = "bold"),
-    axis.title = element_text(size = 18, face = "bold")
-  )
-
-edt_density_g2
-```
-## Group 3
-
-```{r}
-# Function to Simulate EDC
-set.seed(123)
-
-simula_LDE <- function(n, media_rp, sd_rp, eficacia, cd_base, custo_range, preco_range) {
-  simulacoes <- tibble(
-    rendimento_potencial = rnorm(n, media_rp, sd_rp),
-    custo_controle = runif(n, custo_range[1], custo_range[2]),
-    preco_produto = runif(n, preco_range[1], preco_range[2]),
-    eficacia = eficacia
-  ) %>% 
-    mutate(
-      cd_base = cd_base,
-      coeficiente_dano = cd_base * rendimento_potencial,
-      LDE = (custo_controle / (preco_produto * coeficiente_dano)) * eficacia
-    )
-  return(simulacoes)
-}
-
-
-n = 50000 # number of simulations
-media_rp = 12.36 # in ton/ha
-sd_rp = 0.70  # SD of attainable yield
-eficacia = rnorm(50000, 0.54, 0.1) #  in proportion
-cd_base = 0.05
-custo_range = c(40, 160) # cust of control (US$)
-preco_range = c(100, 600) # soybean price (US$)
-
-# run the simulation
-simula_g3 <- simula_LDE(n, media_rp, sd_rp, eficacia, cd_base, custo_range, preco_range)
-```
-
-```{r}
-edt_g3 = simula_g3 |> 
-  ggplot(aes(rendimento_potencial, eficacia, 
-             color = LDE, size = coeficiente_dano))+
-  geom_point()+
-  #scale_color_viridis_c(labels = scales::number_format(accuracy = 0.1))+
-    scale_colour_stepsn(
-    colours = c("#2E8B57",   # dark brown
-                "#7FBF7B",   # medium brown
-                "#D1BE91",   # beige transition
-                "#A6764D",   # light green
-                "#6F3F1F"),  # dark green
-    n.breaks = 6,             # number of steps (adjust for contrast)
-    breaks = seq(0, 8, 1),
-    name = "EDT",
-    guide = guide_legend(
-    override.aes = list(size = 6)   
-  )
-) +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.25)) +
-   labs(color = "EDT",
-     x = "Attainable yield (ton/ha)",
-       y = "Fungicide efficacy (%)",
-     size = "DC")+
-  theme_bw()+
-    theme(
-    legend.position = "top",
-    text = element_text(size = 14),
-    legend.justification = "center",
-    legend.margin = margin(t = 0, r = 20, b = 0, l = 0),  # Aumenta a margem à direita da legenda
-    strip.text = element_text(size = 18,face = "bold"),
-    axis.title = element_text(size = 18, face = "bold")
-  )
-
-edt_g3
-```
-
-
-```{r}
-min(simula_g3$LDE)
-mean(simula_g3$LDE)
-```
-
-```{r}
-
-edt_density_g3 <- ggplot(simula_g3, aes(x = LDE)) +
-  stat_halfeye(fill = "#7FBF7B", alpha = 0.7) +
-  geom_vline(aes(xintercept = median(LDE)), color = "#6F3F1F", linetype = "dashed", size = 1) +
- # annotate("text", x = 0.6, y = 0.90, label = "Median = 1.54%", color = "black", size = 4.5) +
-  #annotate("text", x = 0.6, y = 0.80, label = "95% CI = 0.89%, 2.53%", color = "black", size = 4.5) +
-  labs(
-    x = "Economic Damage Threshold (EDT)",
-    y = "Density"
-  ) +
-  theme_bw()+
-    theme(
-    legend.position = "right",
-    text = element_text(size = 14),
-    legend.justification = "center",
-    legend.margin = margin(t = 0, r = 20, b = 0, l = 0),  # Aumenta a margem à direita da legenda
-    strip.text = element_text(size = 18,face = "bold"),
-    axis.title = element_text(size = 18, face = "bold")
-  )
-
-edt_density_g3
-```
-
-```{r}
-
-library(ggplot2)
-library(patchwork)
-library(cowplot)
-
-base_plot <- (edt_g1 / edt_g2 / edt_g3 | edt_density_g1 / edt_density_g2 / edt_density_g3) +
-  plot_layout(guides = "collect") +
-  plot_annotation(
-    theme = theme(
-      legend.position      = "top",
-      legend.justification = "center",
-      legend.box.just      = "center"
-    )
-  ) &
-  guides(
-    colour = guide_legend(override.aes = list(size = 6)),
-    size   = guide_legend()
-  )
-
-
-base_grob <- patchworkGrob(base_plot)
-
-final_plot <- ggdraw(base_grob) +
-  draw_plot_label(
-    label = c("(a)", "(b)", "(c)"),
-    x     = c(0.01, 0.01, 0.50),
-    y     = c(0.92, 0.45, 0.92),
-    size  = 14,
-    fontface = "bold",
-    hjust = 0
-  )
-
-final_plot
-
-
-```
-
-```{r}
-ggsave("fig/EDT.png", bg = "white", dpi = 600, height = 6, width = 10)
-```
-
-## All groups
-```{r}
-simula_g1$group = "Group 1"
-simula_g2$group = "Group 2"
-simula_g3$group = "Group 3"
-
-simu_all = rbind(simula_g1,simula_g2, simula_g3)
-```
-
 
 ```{r}
 
@@ -987,6 +645,33 @@ simu_all = rbind(EDT_simulated_g1,EDT_simulated_g2,EDT_simulated_g3)
 ```
 
 ```{r}
+simu_all %>% 
+filter(EDT <=9) %>% 
+  filter(cost <=120) %>%  
+  summarise(
+    min = min(EDT),
+    max = max(EDT),
+    mean = mean(EDT),
+    quantile = quantile(EDT, 0.95)
+  )
+```
+
+```{r}
+
+simu_all %>% 
+ filter(EDT <=9) %>% 
+  filter(cost <=120) %>% 
+  group_by(group) %>%
+  summarise(
+    min = min(EDT),
+    max = max(EDT),
+    mean = mean(EDT),
+    quantile = quantile(EDT, 0.95))
+
+```
+
+
+```{r}
 
 heat_EDT_all = simu_all %>%
  # filter(group == "Group 1") %>% 
@@ -1035,7 +720,9 @@ scale_fill_stepsn(
 ```
 
 
+
 ```{r}
+library(ggdist)
 
 edt_density_all <- simu_all %>% 
   filter(EDT <=9) %>% 
@@ -1067,6 +754,7 @@ edt_density_all
 ```{r}
 edt_density_all|heat_EDT_all
 ```
+
 ```{r}
 ggsave("fig/EDT2.png", bg = "white", dpi = 600, height = 6, width = 10)
 
@@ -1109,16 +797,23 @@ sim_df
 ```
 
 
-
-
 ```{r}
-
 tradeoff_df <- sim_df %>% 
   mutate(
      B0 = b0,
   DC = b1 / b0,
   B1 = b1
   )
+
+tradeoff_df %>% 
+  summarise(
+quantile = quantile(DC, 0.95),
+min = min(DC),
+max = max(DC))
+```
+
+
+```{r}
 
 rainbow_dc =  tradeoff_df %>% 
   ggplot(aes(B0,DC, color = B1))+
@@ -1215,6 +910,7 @@ sim_df_g1 <- expand_grid(
 sim_df_g1$group = "Group 1"
 ```
 
+
 ## Group 2
 
 ```{r}
@@ -1302,6 +998,12 @@ simu_DC <- sim_df_all %>%
   DC = b1 / b0,
   B1 = b1)
 
+simu_DC %>% 
+  group_by(group) %>% 
+  summarise(
+quantile = quantile(DC, 0.95),
+min = min(DC),
+max = max(DC))
 ```
 
 ```{r}
@@ -1451,6 +1153,7 @@ loss_r1 = df_loss_r1 |>
         title = element_text(face = "bold"))
 
 ```
+
 ```{r}
 
 df_loss_r1 = df_loss_r1 |> 
@@ -1742,6 +1445,7 @@ b0_all = par_all %>%
   geom_histogram(colour = "white", bins = 12)+
   facet_wrap(~group)+
   scale_fill_manual(values = group_cols, name = "group") +
+  geom_vline(aes(xintercept = median(b0)), color = "black", linetype = "dashed", size = 1) +
   theme_bw()+
   scale_x_continuous(expand = c(0.1, 0.1),
                      limits = c(6000,14000),
@@ -1761,6 +1465,7 @@ b1_all = par_all %>%
   geom_histogram(colour = "white", bins = 12)+
   facet_wrap(~group)+
   scale_fill_manual(values = group_cols, name = "group") +
+  geom_vline(aes(xintercept = median(b1)), color = "black", linetype = "dashed", size = 1) +
   theme_bw()+
   scale_x_continuous(expand = c(0.1, 0.1),
                      limits = c(100,800),
@@ -1778,6 +1483,8 @@ b0_all / b1_all
 
 ggsave("fig/parameters.png", dpi = 600, bg = "white", height = 6, width = 9)
 ```
+
+
 ```{r}
 
 
@@ -1801,10 +1508,29 @@ uj_all = par_all %>%
 
 uj_all
 ```
+
 ```{r}
-data33_r2 %>% 
-  ggplot(aes(vi))+
-  geom_histogram(colour = "white", fill = "black", bins = 12)+
+data33_r1$group = "Group 1"
+data33_r2$group = "Group 2"
+data33_r3$group = "Group 3"
+
+data33_all = rbind(data33_r1,data33_r2,data33_r3)
+```
+
+```{r}
+
+group_cols <- c(
+  "Group 3"  = "#A6764D",
+  "Group 2" = "#D1BE91",
+  "Group 1" = "#7FBF7B")
+
+
+slope_all = data33_all %>% 
+  ggplot(aes(slope, fill = group))+
+  geom_histogram(colour = "white", bins = 12)+
+  geom_vline(aes(xintercept = median(slope)), color = "black", linetype = "dashed", size = 1) +
+ scale_fill_manual(values = group_cols, name = "group") +
+   facet_wrap(~group)+
   theme_bw()+
    labs(x = "Slope (kg/p.p)",
        y = "Frequency")+
@@ -1815,13 +1541,33 @@ data33_r2 %>%
         strip.text = element_text(size = 12, face = "bold"),
         legend.position = "none")
 
-  
+
+vi_all = data33_all %>% 
+  ggplot(aes(vi, fill = group))+
+  geom_histogram(colour = "white", bins = 12)+
+  geom_vline(aes(xintercept = median(vi)), color = "black", linetype = "dashed", size = 1) +
+  scale_fill_manual(values = group_cols, name = "group") +
+  facet_wrap(~group)+
+  theme_bw()+
+   labs(x = "Variance (kg/p.p)",
+       y = "Frequency")+
+  theme(text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        title = element_text(face = "bold"),
+        strip.background = element_blank(),
+        strip.text = element_blank(),
+        legend.position = "none")
+
+slope_all / vi_all
+
+ggsave("fig/slope_vi.png", dpi = 600, bg = "white", height = 6, width = 9)
 ```
 
 ```{r}
 SB_year = data222 %>% 
   ggplot(aes(SB))+
   geom_histogram(bins = 10, color = "white", fill = "#A6764D")+
+  geom_vline(aes(xintercept = median(SB)), color = "black", linetype = "dashed", size = 1) +
   facet_wrap(~year)+
     theme_bw()+
   scale_x_continuous(breaks = c(0,1,2,3,4,5,6,7,8,9),
@@ -1838,6 +1584,7 @@ SB_year = data222 %>%
 yield_year = data222 %>% 
   ggplot(aes(kg_ha))+
   geom_histogram(bins = 10, color = "white", fill = "#2E8B57")+
+  geom_vline(aes(xintercept = median(kg_ha)), color = "black", linetype = "dashed", size = 1) +
   facet_wrap(~year)+
     theme_bw()+
     #ggthemes::theme_few()+
@@ -1868,6 +1615,7 @@ f_all = rbind(f_r1,f_r2,f_r3)
 SB_genotypes = f_all %>% 
   ggplot(aes(SB))+
   geom_histogram(bins = 10, color = "white", fill = "#A6764D")+
+  geom_vline(aes(xintercept = median(SB)), color = "black", linetype = "dashed", size = 1) +
   facet_wrap(~group, ncol = 3)+
  scale_x_continuous(breaks = c(0,1,2,3,4,5,6,7,8,9),
                     limits = c(0, 9))+
@@ -1884,6 +1632,7 @@ SB_genotypes = f_all %>%
 yield_genotypes = f_all %>% 
   ggplot(aes(kg_ha))+
   geom_histogram(bins = 10, color = "white", fill = "#2E8B57")+
+  geom_vline(aes(xintercept = median(kg_ha)), color = "black", linetype = "dashed", size = 1) +
   facet_wrap(~group, ncol = 3)+
     theme_bw()+
     #ggthemes::theme_few()+
